@@ -1,0 +1,38 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.143'
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.neoforged.net/releases' }
+}
+
+neoForge {
+    version = '21.11.45'
+    validateAccessTransformers = true
+
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+        }
+    }
+
+    mods {
+        discordrpc {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+base.archivesName = 'DiscordPresence'
+version = '1.2.0+1.21.11-neoforge'
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

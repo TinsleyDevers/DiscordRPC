@@ -18,6 +18,10 @@ import java.util.Locale;
  */
 public final class LauncherConflict {
 
+    /** While the answer is NONE, re-run detection at most this often - the
+     *  injected RPC thread can appear after client setup already ran. */
+    private static final long RECHECK_INTERVAL_MS = 30_000;
+
     public enum Launcher {
         NONE(""),
         MODRINTH_APP("Modrinth App");
@@ -34,26 +38,36 @@ public final class LauncherConflict {
     }
 
     private static volatile Launcher detected = null;
+    private static volatile long lastCheckMs = 0;
+    private static volatile Path gameDirCache = null;
 
     private LauncherConflict() {}
 
-    /**
-     * Runs detection once and caches the result. Call after client startup so
-     * launcher-injected threads have had a chance to appear.
-     */
+    /** Runs detection now (remembering the game dir for later rechecks). */
     public static Launcher detect(Path gameDir) {
-        Launcher result = detected;
-        if (result == null) {
-            result = runDetection(gameDir);
-            detected = result;
-        }
-        return result;
+        gameDirCache = gameDir;
+        return recheck(true);
     }
 
-    /** Last detection result without re-running (NONE if never run). */
+    /**
+     * Cached detection result. A NONE result is re-verified every
+     * {@link #RECHECK_INTERVAL_MS} because launcher threads can spawn late;
+     * a positive result is final for the session.
+     */
     public static Launcher current() {
+        return recheck(false);
+    }
+
+    private static synchronized Launcher recheck(boolean force) {
         Launcher result = detected;
-        return result != null ? result : Launcher.NONE;
+        long now = System.currentTimeMillis();
+        if (result == null || force
+                || (result == Launcher.NONE && now - lastCheckMs > RECHECK_INTERVAL_MS)) {
+            result = runDetection(gameDirCache);
+            detected = result;
+            lastCheckMs = now;
+        }
+        return result;
     }
 
     private static Launcher runDetection(Path gameDir) {
@@ -67,11 +81,12 @@ public final class LauncherConflict {
             }
         } catch (Exception ignored) {}
 
-        // Environment the launcher exports to the game process.
+        // Environment the launcher exports to the game process. Only THESEUS
+        // is specific enough - matching "MODRINTH" here false-positives on
+        // developers with MODRINTH_TOKEN etc. exported globally.
         try {
             for (String key : System.getenv().keySet()) {
-                String upper = key.toUpperCase(Locale.ROOT);
-                if (upper.contains("THESEUS") || upper.contains("MODRINTH")) {
+                if (key.toUpperCase(Locale.ROOT).contains("THESEUS")) {
                     return Launcher.MODRINTH_APP;
                 }
             }

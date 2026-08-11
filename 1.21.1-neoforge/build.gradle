@@ -31,7 +31,6 @@ neoForge {
 }
 
 base.archivesName = 'DiscordPresence'
-version = '1.2.0+1.21.1-neoforge'
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'

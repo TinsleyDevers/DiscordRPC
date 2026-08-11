@@ -13,13 +13,13 @@ and multiplayer.
 
 | Minecraft | Loader   | Java | Jar |
 |-----------|----------|------|-----|
-| 26.2      | NeoForge | 25   | `DiscordPresence-1.2.0+26.2-neoforge.jar` |
-| 26.2      | Fabric   | 25   | `DiscordPresence-1.2.0+26.2-fabric.jar` |
-| 26.1.x    | NeoForge | 25   | `DiscordPresence-1.2.0+26.1.2-neoforge.jar` |
-| 26.1.x    | Fabric   | 25   | `DiscordPresence-1.2.0+26.1.2-fabric.jar` |
-| 1.21.11   | NeoForge | 21   | `DiscordPresence-1.2.0+1.21.11-neoforge.jar` |
-| 1.21.1    | NeoForge | 21   | `DiscordPresence-1.2.0+1.21.1-neoforge.jar` |
-| 1.20.1–1.20.4 | Forge | 17  | `DiscordPresence-1.2.0+1.20.1-forge.jar` |
+| 26.2      | NeoForge | 25   | `DiscordPresence-1.2.1+26.2-neoforge.jar` |
+| 26.2      | Fabric   | 25   | `DiscordPresence-1.2.1+26.2-fabric.jar` |
+| 26.1.x    | NeoForge | 25   | `DiscordPresence-1.2.1+26.1.2-neoforge.jar` |
+| 26.1.x    | Fabric   | 25   | `DiscordPresence-1.2.1+26.1.2-fabric.jar` |
+| 1.21.11   | NeoForge | 21   | `DiscordPresence-1.2.1+1.21.11-neoforge.jar` |
+| 1.21.1    | NeoForge | 21   | `DiscordPresence-1.2.1+1.21.1-neoforge.jar` |
+| 1.20.1–1.20.4 | Forge | 17  | `DiscordPresence-1.2.1+1.20.1-forge.jar` |
 
 The Fabric builds need [Fabric API](https://modrinth.com/mod/fabric-api);
 [Mod Menu](https://modrinth.com/mod/modmenu) is optional but adds a Configure button.
@@ -89,11 +89,18 @@ Single targets:
 Jars land in `<target>/build/libs/`. Development clients: `./gradlew :<target>:runClient`.
 
 Each target is a standalone source tree because Minecraft's client APIs drift
-between versions; the `core/` and `config/` packages are identical across all
-of them, and `client/PresenceTicker` + the `gui/` package only differ where the
-rendering API forces it. When editing shared logic, change it in
-`26.2-neoforge` first and mirror the change outward.
+between versions. The shared files — `core/DiscordIPC`, `core/RPCManager`,
+`core/LauncherConflict`, `config/ModConfig`, `config/RichPresenceProfile`, and
+the resources — are byte-identical across all seven targets and can be copied
+verbatim. **`core/PlaceholderEngine` is NOT copy-safe**: it legitimately
+differs per version (Identifier vs ResourceLocation, clock APIs, `{version}`
+fallback, per-loader mod count), as do `client/` and `gui/`. When editing
+shared logic, change it in `26.2-neoforge` first and mirror outward; when
+editing the per-version files, port the change by hand.
+
+The mod version is set once, in the root `build.gradle` — subprojects and the
+loader metadata files pick it up automatically.
 
 ## License
 
-MIT
+[MIT](LICENSE)

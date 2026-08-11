@@ -6,8 +6,10 @@
 //   1.21.11-neoforge   Minecraft 1.21.11, NeoForge 21.11.x, Java 21
 //   26.1.2-neoforge    Minecraft 26.1.2,  NeoForge 26.1.x,  Java 25
 //   26.1.2-fabric      Minecraft 26.1.2,  Fabric Loader,    Java 25
+//   26.2-neoforge      Minecraft 26.2,    NeoForge 26.2.x,  Java 25
+//   26.2-fabric        Minecraft 26.2,    Fabric Loader,    Java 25
 //
-// Requires Gradle 9.5+ running on Java 25 (fabric-loom needs the newer JVM;
+// Requires Gradle 9.7 running on Java 25 (fabric-loom needs the newer JVM;
 // per-project toolchains still compile 1.20.1 with 17 and 1.21.x with 21).
 //
 // Build everything:        ./gradlew assembleAll
@@ -16,7 +18,22 @@
 
 allprojects {
     group   = 'com.tinsl.discordrpc'
-    version = '1.2.0'
+    version = '1.2.1'
+}
+
+// The ONLY place the mod version lives. Each jar gets "<version>+<target>",
+// and the loader metadata files pick it up via ${version} at processResources
+// time - a release bump is a one-line change here.
+subprojects {
+    version = "${rootProject.version}+${project.name}"
+
+    tasks.withType(ProcessResources).configureEach {
+        var expandProps = ['version': version.toString()]
+        inputs.properties(expandProps)
+        filesMatching(['META-INF/mods.toml', 'META-INF/neoforge.mods.toml']) {
+            expand(expandProps)
+        }
+    }
 }
 
 // Top-level convenience: a single `assembleAll` task that builds every loader jar.

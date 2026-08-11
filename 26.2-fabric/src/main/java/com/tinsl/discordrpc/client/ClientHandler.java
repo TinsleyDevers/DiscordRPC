@@ -34,8 +34,11 @@ public class ClientHandler {
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
-            while (openConfigKey.consumeClick()) {
-                mc.gui.setScreen(new ConfigScreen(mc.gui.screen()));
+            if (openConfigKey.consumeClick()) {
+                while (openConfigKey.consumeClick()) {} // drain queued presses
+                if (!(mc.gui.screen() instanceof ConfigScreen)) {
+                    mc.gui.setScreen(new ConfigScreen(mc.gui.screen()));
+                }
             }
             ticker.tick(mc);
         });

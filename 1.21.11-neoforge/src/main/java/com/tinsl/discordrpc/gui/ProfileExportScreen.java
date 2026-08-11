@@ -35,6 +35,7 @@ public class ProfileExportScreen extends Screen {
     private final List<AbstractWidget> dyn = new ArrayList<>();
 
     private Component statusMessage = null;
+    private int statusColor = 0xFF55FF55;
     private long statusUntilMs = 0;
 
     public ProfileExportScreen(Screen parent, ModConfig config) {
@@ -75,8 +76,13 @@ public class ProfileExportScreen extends Screen {
 
     private void exportProfile(RichPresenceProfile p) {
         String filename = p.getName().isEmpty() ? "profile" : p.getName();
-        config.exportProfile(p, filename);
-        statusMessage = Component.translatable("discordrpc.export.done", p.getName());
+        if (config.exportProfile(p, filename)) {
+            statusMessage = Component.translatable("discordrpc.export.done", p.getName());
+            statusColor = 0xFF55FF55;
+        } else {
+            statusMessage = Component.translatable("discordrpc.export.failed", p.getName());
+            statusColor = 0xFFFF5555;
+        }
         statusUntilMs = System.currentTimeMillis() + 2500;
     }
 
@@ -104,7 +110,7 @@ public class ProfileExportScreen extends Screen {
             int sx = (width - sw) / 2;
             int sy = bandBottom - 14;
             g.fill(sx - 4, sy - 2, sx + sw + 4, sy + 10, 0x90000000);
-            g.drawString(font, statusMessage, sx, sy, 0xFF55FF55, true);
+            g.drawString(font, statusMessage, sx, sy, statusColor, true);
         }
     }
 

@@ -5,8 +5,11 @@ issueTrackerURL="https://modrinth.com/mod/discordpresence"
 
 [[mods]]
 modId="discordrpc"
-version="1.2.0"
+version="${version}"
 displayName="DiscordPresence"
+logoFile="assets/discordrpc/images/minecraftlogo.png"
+# Client-only mod: joining any server must not flag a version mismatch.
+displayTest="IGNORE_ALL_VERSION"
 authors="ZambieD"
 description='''
 Show your Minecraft session on Discord — exactly the way you want it.
@@ -32,11 +35,11 @@ Features:
     type="required"
     versionRange="[26.2,)"
     ordering="NONE"
-    side="BOTH"
+    side="CLIENT"
 
 [[dependencies.discordrpc]]
     modId="minecraft"
     type="required"
     versionRange="[26.2,27)"
     ordering="NONE"
-    side="BOTH"
+    side="CLIENT"

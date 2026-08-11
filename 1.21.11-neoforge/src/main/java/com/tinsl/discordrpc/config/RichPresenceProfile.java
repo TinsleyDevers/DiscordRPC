@@ -253,44 +253,68 @@ public class RichPresenceProfile {
         return json;
     }
 
+    /**
+     * Tolerant, clamped parsing: any field that is missing, null or of the
+     * wrong type falls back to {@code def}, and strings are length-capped so
+     * hand-edited or imported JSON can't smuggle oversized values past the
+     * GUI's own limits.
+     */
     public static RichPresenceProfile fromJson(JsonObject json) {
-        RichPresenceProfile p = new RichPresenceProfile(
-                json.has("name") ? json.get("name").getAsString() : "Unnamed");
-        if (json.has("contextType")) {
+        RichPresenceProfile p = new RichPresenceProfile(str(json, "name", "Unnamed", 64));
+        if (json.has("contextType") && json.get("contextType").isJsonPrimitive()) {
             try { p.contextType = ContextType.valueOf(json.get("contextType").getAsString()); }
             catch (IllegalArgumentException ignored) {}
         }
-        if (json.has("contextFilter"))   p.contextFilter   = json.get("contextFilter").getAsString();
-        if (json.has("priority"))        p.priority        = json.get("priority").getAsInt();
-        if (json.has("details"))         p.details         = json.get("details").getAsString();
-        if (json.has("state"))           p.state           = json.get("state").getAsString();
-        if (json.has("timestampMode")) {
+        p.contextFilter = str(json, "contextFilter", p.contextFilter, 128);
+        if (json.has("priority") && json.get("priority").isJsonPrimitive()) {
+            try { p.priority = json.get("priority").getAsInt(); } catch (Exception ignored) {}
+        }
+        p.details = str(json, "details", p.details, 256);
+        p.state = str(json, "state", p.state, 256);
+        if (json.has("timestampMode") && json.get("timestampMode").isJsonPrimitive()) {
             try { p.timestampMode = TimestampMode.valueOf(json.get("timestampMode").getAsString()); }
             catch (IllegalArgumentException ignored) {}
         }
-        if (json.has("showPartySize"))   p.showPartySize   = json.get("showPartySize").getAsBoolean();
-        if (json.has("largeImageKey"))   p.largeImageKey   = json.get("largeImageKey").getAsString();
-        if (json.has("largeImageText"))  p.largeImageText  = json.get("largeImageText").getAsString();
-        if (json.has("smallImageKey"))   p.smallImageKey   = json.get("smallImageKey").getAsString();
-        if (json.has("smallImageText"))  p.smallImageText  = json.get("smallImageText").getAsString();
-        if (json.has("button1Label"))    p.button1Label    = json.get("button1Label").getAsString();
-        if (json.has("button1Url"))      p.button1Url      = json.get("button1Url").getAsString();
-        if (json.has("button2Label"))    p.button2Label    = json.get("button2Label").getAsString();
-        if (json.has("button2Url"))      p.button2Url      = json.get("button2Url").getAsString();
+        if (json.has("showPartySize") && json.get("showPartySize").isJsonPrimitive()) {
+            try { p.showPartySize = json.get("showPartySize").getAsBoolean(); } catch (Exception ignored) {}
+        }
+        p.largeImageKey = str(json, "largeImageKey", p.largeImageKey, 256);
+        p.largeImageText = str(json, "largeImageText", p.largeImageText, 256);
+        p.smallImageKey = str(json, "smallImageKey", p.smallImageKey, 256);
+        p.smallImageText = str(json, "smallImageText", p.smallImageText, 256);
+        p.button1Label = str(json, "button1Label", p.button1Label, 32);
+        p.button1Url = str(json, "button1Url", p.button1Url, 512);
+        p.button2Label = str(json, "button2Label", p.button2Label, 32);
+        p.button2Url = str(json, "button2Url", p.button2Url, 512);
 
-        if (json.has("dimensionOverrides")) {
+        if (json.has("dimensionOverrides") && json.get("dimensionOverrides").isJsonObject()) {
             JsonObject dims = json.getAsJsonObject("dimensionOverrides");
             for (Map.Entry<String, JsonElement> e : dims.entrySet()) {
-                p.dimensionOverrides.put(e.getKey(), Override.fromJson(e.getValue().getAsJsonObject()));
+                if (e.getValue().isJsonObject()) {
+                    p.dimensionOverrides.put(e.getKey(), Override.fromJson(e.getValue().getAsJsonObject()));
+                }
             }
         }
-        if (json.has("screenOverrides")) {
+        if (json.has("screenOverrides") && json.get("screenOverrides").isJsonObject()) {
             JsonObject scr = json.getAsJsonObject("screenOverrides");
             for (Map.Entry<String, JsonElement> e : scr.entrySet()) {
-                p.screenOverrides.put(e.getKey(), Override.fromJson(e.getValue().getAsJsonObject()));
+                if (e.getValue().isJsonObject()) {
+                    p.screenOverrides.put(e.getKey(), Override.fromJson(e.getValue().getAsJsonObject()));
+                }
             }
         }
         return p;
+    }
+
+    /** Reads a string field, tolerating null / wrong types, capped at {@code maxLen}. */
+    private static String str(JsonObject json, String key, String def, int maxLen) {
+        if (!json.has(key) || !json.get(key).isJsonPrimitive()) return def;
+        try {
+            String v = json.get(key).getAsString();
+            return v.length() <= maxLen ? v : v.substring(0, maxLen);
+        } catch (Exception e) {
+            return def;
+        }
     }
 
     // ────────────────────────────────────────────────────────
@@ -474,21 +498,23 @@ public class RichPresenceProfile {
 
         public static Override fromJson(JsonObject o) {
             Override ov = new Override();
-            if (o.has("details"))        ov.details        = o.get("details").getAsString();
-            if (o.has("state"))          ov.state          = o.get("state").getAsString();
-            if (o.has("timestampMode")) {
+            ov.details = str(o, "details", null, 256);
+            ov.state = str(o, "state", null, 256);
+            if (o.has("timestampMode") && o.get("timestampMode").isJsonPrimitive()) {
                 try { ov.timestampMode = TimestampMode.valueOf(o.get("timestampMode").getAsString()); }
                 catch (IllegalArgumentException ignored) {}
             }
-            if (o.has("showPartySize"))  ov.showPartySize  = o.get("showPartySize").getAsBoolean();
-            if (o.has("largeImageKey"))  ov.largeImageKey  = o.get("largeImageKey").getAsString();
-            if (o.has("largeImageText")) ov.largeImageText = o.get("largeImageText").getAsString();
-            if (o.has("smallImageKey"))  ov.smallImageKey  = o.get("smallImageKey").getAsString();
-            if (o.has("smallImageText")) ov.smallImageText = o.get("smallImageText").getAsString();
-            if (o.has("button1Label"))   ov.button1Label   = o.get("button1Label").getAsString();
-            if (o.has("button1Url"))     ov.button1Url     = o.get("button1Url").getAsString();
-            if (o.has("button2Label"))   ov.button2Label   = o.get("button2Label").getAsString();
-            if (o.has("button2Url"))     ov.button2Url     = o.get("button2Url").getAsString();
+            if (o.has("showPartySize") && o.get("showPartySize").isJsonPrimitive()) {
+                try { ov.showPartySize = o.get("showPartySize").getAsBoolean(); } catch (Exception ignored) {}
+            }
+            ov.largeImageKey = str(o, "largeImageKey", null, 256);
+            ov.largeImageText = str(o, "largeImageText", null, 256);
+            ov.smallImageKey = str(o, "smallImageKey", null, 256);
+            ov.smallImageText = str(o, "smallImageText", null, 256);
+            ov.button1Label = str(o, "button1Label", null, 32);
+            ov.button1Url = str(o, "button1Url", null, 512);
+            ov.button2Label = str(o, "button2Label", null, 32);
+            ov.button2Url = str(o, "button2Url", null, 512);
             return ov;
         }
     }

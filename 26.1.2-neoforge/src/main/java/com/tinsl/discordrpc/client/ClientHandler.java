@@ -43,8 +43,11 @@ public class ClientHandler {
     @SubscribeEvent
     public void onClientTick(ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
-        while (OPEN_CONFIG_KEY.consumeClick()) {
-            mc.setScreen(new ConfigScreen(mc.screen));
+        if (OPEN_CONFIG_KEY.consumeClick()) {
+            while (OPEN_CONFIG_KEY.consumeClick()) {} // drain queued presses
+            if (!(mc.screen instanceof ConfigScreen)) {
+                mc.setScreen(new ConfigScreen(mc.screen));
+            }
         }
         ticker.tick(mc);
     }

@@ -115,6 +115,15 @@ public class ConfigScreen extends Screen {
 
     private Component statusMessage = null;
     private long statusUntilMs = 0;
+    /** Screen-open time, so the preview's elapsed clock starts at 00:00. */
+    private final long openedAtMs = System.currentTimeMillis();
+
+    /** The Multiplayer tab's own edit buffer, parked while a server profile is edited. */
+    private RichPresenceProfile stashedMultiBase = null;
+    /** Index armed for server-profile deletion (two-click confirm), -1 when none. */
+    private int confirmDeleteServerIdx = -1;
+    /** True after the first click on "Reset Everything" (two-click confirm). */
+    private boolean confirmReset = false;
 
     // Layout
     private boolean compact;
@@ -189,8 +198,9 @@ public class ConfigScreen extends Screen {
         textLines.clear();
         variablesY = -1;
 
-        BundledImageRegistry.reset();
-        ImagePickerWidget.resetLocalCache();
+        // Incremental: bundled images load once per session, and only local
+        // files added since the last open get decoded. Re-running on every
+        // init() (which includes window resizes) is therefore cheap.
         ImagePickerWidget.preloadFromDirectory(config.getImagesDir());
 
         computeLayout();
@@ -329,9 +339,12 @@ public class ConfigScreen extends Screen {
     private void switchTab(int tab) {
         if (tab == currentTab) return;
         commitOverrideIfEditing();
+        if (editingServerProfile != null) restoreMultiBase();
 
         currentTab = tab;
         currentZone = DiscordPreviewWidget.Zone.NONE;
+        confirmDeleteServerIdx = -1;
+        confirmReset = false;
         editingServerProfile = null;
         editingOverrideKey = null;
         overrideParentProfile = null;
@@ -415,7 +428,18 @@ public class ConfigScreen extends Screen {
                     .bounds(x, y, w - removeW - 4, 20)
                     .tooltip(Tooltip.create(Component.translatable("discordrpc.server.edit.tooltip")))
                     .build());
-            addDynamic(Button.builder(Component.translatable("discordrpc.button.remove"), b -> deleteServerProfile(idx))
+            boolean confirming = idx == confirmDeleteServerIdx;
+            addDynamic(Button.builder(Component.translatable(
+                                    confirming ? "discordrpc.button.confirm" : "discordrpc.button.remove"),
+                            b -> {
+                                if (idx != confirmDeleteServerIdx) {
+                                    confirmDeleteServerIdx = idx;
+                                    rebuildContent();
+                                } else {
+                                    confirmDeleteServerIdx = -1;
+                                    deleteServerProfile(idx);
+                                }
+                            })
                     .bounds(x + w - removeW, y, removeW, 20).build());
             y += 22;
         }
@@ -467,7 +491,7 @@ public class ConfigScreen extends Screen {
             RichPresenceProfile copy = baseCopies.get(TAB_MULTI);
             if (copy != null) {
                 editingServerProfile.applyPresenceFrom(copy);
-                editingServerProfile.setName(copy.getName());
+                editingServerProfile.setName(uniqueProfileName(copy.getName(), editingServerProfile));
                 editingServerProfile.setContextFilter(copy.getContextFilter());
                 applyOverridesFrom(editingServerProfile, copy);
             }
@@ -485,12 +509,18 @@ public class ConfigScreen extends Screen {
     }
 
     private void selectServerProfile(RichPresenceProfile sp) {
+        // Park the Multiplayer tab's own edit buffer so its unsaved edits
+        // survive a detour through a server profile.
+        if (editingServerProfile == null && stashedMultiBase == null) {
+            stashedMultiBase = baseCopies.get(TAB_MULTI);
+        }
         editingServerProfile = sp;
         RichPresenceProfile copy = sp.deepCopy();
         editingProfile = copy;
         baseCopies.put(TAB_MULTI, copy);
         realProfiles.put(TAB_MULTI, sp);
         currentZone = DiscordPreviewWidget.Zone.NONE;
+        confirmDeleteServerIdx = -1;
         editingOverrideKey = null;
         overrideParentProfile = null;
         rebuildContent();
@@ -504,6 +534,15 @@ public class ConfigScreen extends Screen {
         editingOverrideKey = null;
         overrideParentProfile = null;
 
+        restoreMultiBase();
+        editingProfile = baseCopies.get(TAB_MULTI);
+
+        rebuildContent();
+        updatePreview();
+    }
+
+    /** Points the Multiplayer tab back at its base profile, restoring the parked buffer. */
+    private void restoreMultiBase() {
         RichPresenceProfile real = null;
         for (RichPresenceProfile p : config.getProfiles()) {
             if (p.getContextType() == RichPresenceProfile.ContextType.MULTIPLAYER) { real = p; break; }
@@ -513,11 +552,12 @@ public class ConfigScreen extends Screen {
             config.getProfiles().add(real);
         }
         realProfiles.put(TAB_MULTI, real);
-        baseCopies.put(TAB_MULTI, real.deepCopy());
-        editingProfile = baseCopies.get(TAB_MULTI);
-
-        rebuildContent();
-        updatePreview();
+        if (stashedMultiBase != null) {
+            baseCopies.put(TAB_MULTI, stashedMultiBase);
+            stashedMultiBase = null;
+        } else {
+            baseCopies.put(TAB_MULTI, real.deepCopy());
+        }
     }
 
     private void addServerProfile() {
@@ -532,11 +572,30 @@ public class ConfigScreen extends Screen {
         if (idx < 0 || idx >= serverProfiles.size()) return;
         RichPresenceProfile sp = serverProfiles.remove(idx);
         config.getProfiles().remove(sp);
+        config.save();
         if (editingServerProfile == sp) {
             exitServerProfileEdit();
         } else {
             rebuildContent();
             updatePreview();
+        }
+    }
+
+    /** Appends " (2)", " (3)" .. when another profile already uses the name -
+     *  duplicate names would collide as export filenames. */
+    private String uniqueProfileName(String wanted, RichPresenceProfile self) {
+        if (wanted == null || wanted.isEmpty()) wanted = "Server";
+        String name = wanted;
+        int n = 2;
+        outer:
+        while (true) {
+            for (RichPresenceProfile p : config.getProfiles()) {
+                if (p != self && name.equals(p.getName())) {
+                    name = wanted + " (" + (n++) + ")";
+                    continue outer;
+                }
+            }
+            return name;
         }
     }
 
@@ -1148,11 +1207,22 @@ public class ConfigScreen extends Screen {
                 .bounds(x, y, half, 20)
                 .tooltip(Tooltip.create(Component.translatable("discordrpc.button.open_profiles_folder.tooltip")))
                 .build());
-        addDynamic(Button.builder(Component.translatable("discordrpc.button.reset_everything"),
+        addDynamic(Button.builder(Component.translatable(confirmReset
+                                ? "discordrpc.button.confirm_reset" : "discordrpc.button.reset_everything"),
                         b -> {
+                            if (!confirmReset) {
+                                // First click arms the confirmation - resetting
+                                // wipes every profile and saves immediately.
+                                confirmReset = true;
+                                rebuildContent();
+                                flashStatus(Component.translatable("discordrpc.status.reset_confirm"));
+                                return;
+                            }
+                            confirmReset = false;
                             config.resetToDefaults();
                             baseCopies.clear();
                             realProfiles.clear();
+                            stashedMultiBase = null;
                             loadServerProfiles();
                             loadProfileForTab(currentTab);
                             rebuildContent();
@@ -1296,7 +1366,7 @@ public class ConfigScreen extends Screen {
         preview.setConnected(rpc != null && rpc.isConnected());
 
         if (editingProfile.getTimestampMode() == RichPresenceProfile.TimestampMode.ELAPSED) {
-            long s = (System.currentTimeMillis() / 1000) % 3600;
+            long s = (System.currentTimeMillis() - openedAtMs) / 1000;
             preview.setElapsedTime(String.format("%02d:%02d elapsed", s / 60, s % 60));
         } else {
             preview.setElapsedTime("");

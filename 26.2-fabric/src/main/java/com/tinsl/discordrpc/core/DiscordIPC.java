@@ -24,7 +24,9 @@ import java.util.UUID;
  * HANDSHAKE, SET_ACTIVITY frames, PING/PONG and CLOSE.
  *
  * All methods block on pipe I/O, so they must only be called from the RPC
- * worker thread - never from the render thread.
+ * worker thread - never from the render thread. The one exception is
+ * {@link #abort()}, which exists precisely so another thread (the shutdown
+ * hook) can yank the pipe out from under a blocked read.
  */
 public class DiscordIPC {
     private static final int OP_HANDSHAKE = 0;
@@ -34,20 +36,24 @@ public class DiscordIPC {
     private static final int OP_PONG = 4;
 
     private static final int MAX_FRAME_SIZE = 1 << 20;
+    /** Frames to scan for our nonce before giving up on correlating a reply. */
+    private static final int MAX_REPLY_SCAN = 8;
 
     public enum State { DISCONNECTED, CONNECTING, CONNECTED }
 
     private volatile State state = State.DISCONNECTED;
     private String clientId;
 
-    /** Windows named pipe; null on other platforms. */
-    private RandomAccessFile pipe;
-    /** Unix domain socket; null on Windows. */
-    private SocketChannel socketChannel;
+    /** Windows named pipe; null on other platforms. Volatile so {@link #abort()} can close it. */
+    private volatile RandomAccessFile pipe;
+    /** Unix domain socket; null on Windows. Volatile so {@link #abort()} can close it. */
+    private volatile SocketChannel socketChannel;
 
     private final boolean isWindows;
     /** Discord account name from the READY handshake, e.g. "zambied". Empty until connected. */
     private volatile String discordUser = "";
+    /** Downgrades the "is Discord running?" warning to debug after the first miss. */
+    private boolean warnedUnreachable = false;
 
     public DiscordIPC() {
         this.isWindows = System.getProperty("os.name").toLowerCase().contains("win");
@@ -77,7 +83,12 @@ public class DiscordIPC {
         }
 
         state = State.DISCONNECTED;
-        DiscordRPCMod.LOGGER.warn("Could not reach Discord IPC - is the Discord desktop app running?");
+        if (!warnedUnreachable) {
+            warnedUnreachable = true;
+            DiscordRPCMod.LOGGER.warn("Could not reach Discord IPC - is the Discord desktop app running?");
+        } else {
+            DiscordRPCMod.LOGGER.debug("Discord IPC still unreachable");
+        }
         return false;
     }
 
@@ -88,8 +99,9 @@ public class DiscordIPC {
             } else {
                 socketChannel = SocketChannel.open(UnixDomainSocketAddress.of(unixSocket));
             }
-            state = State.CONNECTED;
             performHandshake();
+            state = State.CONNECTED;
+            warnedUnreachable = false;
             DiscordRPCMod.LOGGER.info("Connected to Discord IPC at {}{}",
                     windowsPipe != null ? windowsPipe : unixSocket,
                     discordUser.isEmpty() ? "" : " (account: " + discordUser + ")");
@@ -154,30 +166,59 @@ public class DiscordIPC {
         }
     }
 
-    /** Sends the activity (or clears it when null). Safe no-op while disconnected. */
-    public synchronized void setActivity(JsonObject activity) {
-        if (state != State.CONNECTED) return;
+    /**
+     * Sends the activity (or clears it when null). Safe no-op while
+     * disconnected. Returns true when Discord acknowledged the frame; false
+     * means the connection is gone and the caller should reconnect.
+     */
+    public synchronized boolean setActivity(JsonObject activity) {
+        if (state != State.CONNECTED) return false;
         try {
             JsonObject args = new JsonObject();
             args.addProperty("pid", ProcessHandle.current().pid());
             if (activity != null) args.add("activity", activity);
 
+            String nonce = UUID.randomUUID().toString();
             JsonObject payload = new JsonObject();
             payload.addProperty("cmd", "SET_ACTIVITY");
-            payload.addProperty("nonce", UUID.randomUUID().toString());
+            payload.addProperty("nonce", nonce);
             payload.add("args", args);
 
             send(OP_FRAME, payload.toString());
-            String reply = readFrame();
-            logIfError(reply);
+            logIfError(awaitReply(nonce));
+            return true;
         } catch (Exception e) {
             DiscordRPCMod.LOGGER.warn("Lost Discord connection while updating activity: {}", e.getMessage());
             handleDisconnect();
+            return false;
         }
     }
 
-    public synchronized void clearActivity() {
-        setActivity(null);
+    public synchronized boolean clearActivity() {
+        return setActivity(null);
+    }
+
+    /**
+     * Reads until the frame carrying {@code nonce} arrives, skipping
+     * unsolicited DISPATCH events so an event frame can never be mistaken for
+     * our reply (which would shift every later request/reply pairing).
+     */
+    private String awaitReply(String nonce) throws IOException {
+        for (int i = 0; i < MAX_REPLY_SCAN; i++) {
+            String reply = readFrame();
+            try {
+                JsonObject json = JsonParser.parseString(reply).getAsJsonObject();
+                String replyNonce = json.has("nonce") && !json.get("nonce").isJsonNull()
+                        ? json.get("nonce").getAsString() : "";
+                if (nonce.equals(replyNonce)) return reply;
+                String cmd = json.has("cmd") && !json.get("cmd").isJsonNull()
+                        ? json.get("cmd").getAsString() : "";
+                if (!"DISPATCH".equals(cmd)) return reply;
+            } catch (Exception e) {
+                return reply;
+            }
+        }
+        return "{}";
     }
 
     private static void logIfError(String reply) {
@@ -199,10 +240,12 @@ public class DiscordIPC {
         buffer.put(bytes);
         buffer.flip();
 
-        if (isWindows && pipe != null) {
-            pipe.write(buffer.array());
-        } else if (socketChannel != null) {
-            while (buffer.hasRemaining()) socketChannel.write(buffer);
+        RandomAccessFile p = pipe;
+        SocketChannel ch = socketChannel;
+        if (isWindows && p != null) {
+            p.write(buffer.array());
+        } else if (ch != null) {
+            while (buffer.hasRemaining()) ch.write(buffer);
         } else {
             throw new IOException("Not connected");
         }
@@ -244,13 +287,15 @@ public class DiscordIPC {
     }
 
     private void readFully(ByteBuffer buffer) throws IOException {
-        if (isWindows && pipe != null) {
+        RandomAccessFile p = pipe;
+        SocketChannel ch = socketChannel;
+        if (isWindows && p != null) {
             byte[] bytes = new byte[buffer.remaining()];
-            pipe.readFully(bytes);
+            p.readFully(bytes);
             buffer.put(bytes);
-        } else if (socketChannel != null) {
+        } else if (ch != null) {
             while (buffer.hasRemaining()) {
-                if (socketChannel.read(buffer) == -1) throw new IOException("Discord IPC stream ended");
+                if (ch.read(buffer) == -1) throw new IOException("Discord IPC stream ended");
             }
         } else {
             throw new IOException("Not connected");
@@ -274,12 +319,26 @@ public class DiscordIPC {
         closeResources();
     }
 
+    /**
+     * Emergency teardown for the shutdown hook. Deliberately NOT synchronized:
+     * if the worker thread is wedged inside a blocking read it holds this
+     * object's monitor, and closing the underlying pipe/socket from here is
+     * what forces that read to fail and the worker to exit.
+     */
+    public void abort() {
+        state = State.DISCONNECTED;
+        discordUser = "";
+        closeResources();
+    }
+
     private void closeResources() {
         try {
-            if (pipe != null) { pipe.close(); pipe = null; }
+            RandomAccessFile p = pipe;
+            if (p != null) { pipe = null; p.close(); }
         } catch (Exception ignored) {}
         try {
-            if (socketChannel != null) { socketChannel.close(); socketChannel = null; }
+            SocketChannel ch = socketChannel;
+            if (ch != null) { socketChannel = null; ch.close(); }
         } catch (Exception ignored) {}
     }
 

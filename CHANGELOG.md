@@ -1,5 +1,70 @@
 # Changelog
 
+## 1.2.1 — 2026-08-10
+
+Stability and correctness release — no new features, a lot of fixed ones.
+
+### Your config can no longer be lost
+
+- Saves are atomic (written to a temp file, then swapped in), so a crash or
+  power loss mid-save can never truncate `config.json`.
+- A config that fails to parse is preserved as `config.json.corrupt` instead of
+  being silently overwritten with defaults — hand-recoverable, never destroyed.
+- One bad value no longer discards the whole file: every setting and every
+  profile is loaded independently, and malformed entries are skipped.
+
+### Discord updates: deduplicated and rate limited
+
+- Identical presence payloads are no longer re-sent every few seconds.
+- Updates are rate limited to one per 4 seconds (Discord allows ~5 per 20s),
+  with rapid changes coalesced into a single trailing update — fast menu
+  clicking or dimension hopping can no longer make the presence go stale.
+- A transient game-state race (e.g. leaving a world mid-update) no longer tears
+  down a healthy Discord connection; only real I/O failures trigger reconnect.
+- The connection lifecycle now lives entirely on the worker thread (no more
+  cross-thread races on reconnect state), replies are matched by nonce, and
+  game exit can no longer hang on a wedged pipe read.
+
+### Fixed features
+
+- **Bundled images actually install again**: the manifest referenced CamelCase
+  filenames while the jar contains lowercase ones, so 0 of 14 images were being
+  copied to `config/discordrpc/images/` from a release jar. Image keys also
+  resolve case-insensitively now (fixes defaults on Linux/macOS).
+- **Buttons are editable everywhere**: empty button slots now render as
+  clickable ghost rows in the preview card — previously a fresh install had no
+  way to add a presence button outside server overrides.
+- **The small-image badge is clickable**: it used to hit-test as the large
+  image and open the wrong editor.
+- **Party size on servers**: no more permanently-full "(5 of 5)" — the real
+  capacity comes from the server-list ping when known, and the party is omitted
+  when it isn't. `{max_players}` shows "?" instead of echoing the online count.
+- **"Show in main menu" works**: the toggle existed but was never read.
+- **Importing a Main Menu / Singleplayer / Multiplayer profile** now applies it
+  onto that tab's profile instead of creating an invisible duplicate that could
+  hijack the presence via priority.
+- Unsaved Multiplayer-tab edits survive a detour into a server-profile editor.
+- Export failures are reported instead of always claiming success.
+
+### Safety and polish
+
+- Destructive actions — deleting a profile file, removing a server profile,
+  Reset Everything — now require a confirming second click.
+- Config screen no longer re-decodes every image on each open and window
+  resize; directory listings are no longer leaked (one file handle per rendered
+  frame on the import screen).
+- The Modrinth App conflict check re-runs periodically instead of caching a
+  one-shot result, and no longer false-positives on developers with
+  `MODRINTH_*` environment variables.
+- The "is Discord running?" warning logs once instead of every reconnect
+  attempt; server profile names auto-uniquify (duplicate names collided as
+  export filenames); emoji are no longer split in half by length truncation.
+- Client-only marking (`displayTest`, `side="CLIENT"`) in all Forge/NeoForge
+  metadata — no more red version mismatch in the server list; mod-list logo
+  added; 1.21.1 `pack_format` corrected to 34; LICENSE file shipped.
+- The mod version now lives in exactly one place (root Gradle build) instead
+  of thirteen.
+
 ## 1.2.0 — 2026-08-09
 
 ### The launcher-override fix

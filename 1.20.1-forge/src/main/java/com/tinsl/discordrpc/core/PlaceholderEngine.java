@@ -69,10 +69,13 @@ public class PlaceholderEngine {
         });
 
         resolvers.put("biome", () -> {
+            // Snapshot into locals: this runs on the RPC worker while the game
+            // thread may be tearing the world down.
             LocalPlayer p = mc.player;
-            if (p == null || mc.level == null) return "Unknown";
+            ClientLevel level = mc.level;
+            if (p == null || level == null) return "Unknown";
             BlockPos pos = p.blockPosition();
-            Holder<Biome> biomeHolder = mc.level.getBiome(pos);
+            Holder<Biome> biomeHolder = level.getBiome(pos);
             return biomeHolder.unwrapKey()
                     .map(k -> formatId(k.location().getPath()))
                     .orElse("Unknown");
@@ -112,8 +115,9 @@ public class PlaceholderEngine {
         });
 
         resolvers.put("world", () -> {
-            if (mc.getSingleplayerServer() != null) {
-                return mc.getSingleplayerServer().getWorldData().getLevelName();
+            var server = mc.getSingleplayerServer();
+            if (server != null) {
+                return server.getWorldData().getLevelName();
             }
             ServerData data = mc.getCurrentServer();
             return data != null ? data.name : "Unknown";
@@ -128,14 +132,18 @@ public class PlaceholderEngine {
         });
 
         resolvers.put("max_players", () -> {
-            if (mc.getSingleplayerServer() != null) {
-                return String.valueOf(mc.getSingleplayerServer().getMaxPlayers());
+            var server = mc.getSingleplayerServer();
+            if (server != null) {
+                return String.valueOf(server.getMaxPlayers());
             }
-            ClientPacketListener handler = mc.getConnection();
-            if (handler != null) {
-                return String.valueOf(handler.getOnlinePlayers().size());
+            // On a remote server the real capacity only exists in the server-list
+            // ping data; when we don't have it, be honest rather than echoing
+            // the online count back as a fake maximum.
+            ServerData data = mc.getCurrentServer();
+            if (data != null && data.players != null) {
+                return String.valueOf(data.players.max());
             }
-            return "0";
+            return "?";
         });
 
         resolvers.put("fps", () -> String.valueOf(mc.getFps()));

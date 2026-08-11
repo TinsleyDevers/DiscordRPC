@@ -85,12 +85,10 @@ public class DiscordPreviewWidget extends AbstractWidget {
         int pad = 8;
         int imgSize = Math.max(44, Math.min(56, w / 4));
 
-        // Total height: header + body + optional buttons + bottom padding
+        // Total height: header + body + two button rows + bottom padding.
+        // Empty buttons still get a (ghost) row so their editors stay reachable.
         int bodyH = Math.max(imgSize, 48);
-        int h = 24 + bodyH + 6;
-        if (!button1Label.isEmpty()) h += 22;
-        if (!button2Label.isEmpty()) h += 22;
-        h += 4;
+        int h = 24 + bodyH + 6 + 22 + 22 + 4;
         this.height = h;
 
         // Card with 1px rounded corners (tooltip-style corner trim)
@@ -171,41 +169,20 @@ public class DiscordPreviewWidget extends AbstractWidget {
             g.drawString(font, trimToWidth(font, emptyLabel(Zone.TIMESTAMP), maxTW), textX, lineY, C_EMPTY, false);
         }
 
-        // Buttons area (both zones stay clickable even when empty so the
-        // player can always reach the editors).
+        // Buttons area. Both zones stay clickable even when empty so the
+        // player can always reach the editors - an empty slot renders as a
+        // ghost row, matching how details/state show their "empty" hints.
         int btnY = cy + bodyH + 6;
         int btnW = w - pad * 2;
         int btnX = x + pad;
         int btnH = 18;
 
-        zoneRects.put(Zone.BUTTON1, new int[]{btnX, btnY, btnW, button1Label.isEmpty() ? 0 : btnH});
-        if (!button1Label.isEmpty()) {
-            boolean over = mx >= btnX && mx < btnX + btnW && my >= btnY && my < btnY + btnH;
-            fillRounded(g, btnX, btnY, btnX + btnW, btnY + btnH, over ? C_BTN_HOVER : C_BTN);
-            String label = trimToWidth(font, button1Label, btnW - 8);
-            g.drawString(font, label, btnX + (btnW - font.width(label)) / 2, btnY + 5, C_WHITE, false);
-            btnY += btnH + 4;
-        }
-
-        zoneRects.put(Zone.BUTTON2, new int[]{btnX, btnY, btnW, button2Label.isEmpty() ? 0 : btnH});
-        if (!button2Label.isEmpty()) {
-            boolean over = mx >= btnX && mx < btnX + btnW && my >= btnY && my < btnY + btnH;
-            fillRounded(g, btnX, btnY, btnX + btnW, btnY + btnH, over ? C_BTN_HOVER : C_BTN);
-            String label = trimToWidth(font, button2Label, btnW - 8);
-            g.drawString(font, label, btnX + (btnW - font.width(label)) / 2, btnY + 5, C_WHITE, false);
-        }
+        drawButtonRow(g, font, Zone.BUTTON1, button1Label, btnX, btnY, btnW, btnH, mx, my);
+        btnY += btnH + 4;
+        drawButtonRow(g, font, Zone.BUTTON2, button2Label, btnX, btnY, btnW, btnH, mx, my);
 
         // Hover + selection feedback
-        hoveredZone = Zone.NONE;
-        if (isHovered) {
-            for (Map.Entry<Zone, int[]> entry : zoneRects.entrySet()) {
-                int[] r = entry.getValue();
-                if (r[3] > 0 && mx >= r[0] && mx < r[0] + r[2] && my >= r[1] && my < r[1] + r[3]) {
-                    hoveredZone = entry.getKey();
-                    break;
-                }
-            }
-        }
+        hoveredZone = isHovered ? getZoneAt(mx, my) : Zone.NONE;
 
         if (hoveredZone != Zone.NONE && hoveredZone != selectedZone) {
             int[] r = zoneRects.get(hoveredZone);
@@ -224,6 +201,21 @@ public class DiscordPreviewWidget extends AbstractWidget {
                     Component.translatable("discordrpc.preview.edit_hint",
                             Component.translatable(hoveredZone.translationKey())),
                     mx, my);
+        }
+    }
+
+    private void drawButtonRow(GuiGraphics g, Font font, Zone zone, String label,
+                               int btnX, int btnY, int btnW, int btnH, int mx, int my) {
+        zoneRects.put(zone, new int[]{btnX, btnY, btnW, btnH});
+        boolean over = mx >= btnX && mx < btnX + btnW && my >= btnY && my < btnY + btnH;
+        if (!label.isEmpty()) {
+            fillRounded(g, btnX, btnY, btnX + btnW, btnY + btnH, over ? C_BTN_HOVER : C_BTN);
+            String text = trimToWidth(font, label, btnW - 8);
+            g.drawString(font, text, btnX + (btnW - font.width(text)) / 2, btnY + 5, C_WHITE, false);
+        } else {
+            fillRounded(g, btnX, btnY, btnX + btnW, btnY + btnH, C_IMG_BG);
+            String text = trimToWidth(font, emptyLabel(zone), btnW - 8);
+            g.drawString(font, text, btnX + (btnW - font.width(text)) / 2, btnY + 5, C_EMPTY, false);
         }
     }
 
@@ -248,10 +240,12 @@ public class DiscordPreviewWidget extends AbstractWidget {
     private static String trimToWidth(Font font, String text, int maxW) {
         if (font.width(text) <= maxW) return text;
         String ellipsis = "..";
-        int ew = font.width(ellipsis);
+        int budget = maxW - font.width(ellipsis);
         StringBuilder sb = new StringBuilder();
+        int used = 0;
         for (char c : text.toCharArray()) {
-            if (font.width(sb.toString() + c) + ew > maxW) break;
+            used += font.width(String.valueOf(c));
+            if (used > budget) break;
             sb.append(c);
         }
         return sb + ellipsis;
@@ -271,11 +265,19 @@ public class DiscordPreviewWidget extends AbstractWidget {
         return false;
     }
 
+    /** Hit-test order: the small-image badge overlaps the large image's corner,
+     *  so it must be checked first or it is unreachable. */
+    private static final Zone[] HIT_ORDER = {
+            Zone.SMALL_IMAGE, Zone.LARGE_IMAGE, Zone.DETAILS, Zone.STATE,
+            Zone.TIMESTAMP, Zone.BUTTON1, Zone.BUTTON2
+    };
+
     private Zone getZoneAt(double mx, double my) {
-        for (Map.Entry<Zone, int[]> entry : zoneRects.entrySet()) {
-            int[] r = entry.getValue();
-            if (r[3] > 0 && mx >= r[0] && mx < r[0] + r[2] && my >= r[1] && my < r[1] + r[3]) {
-                return entry.getKey();
+        for (Zone zone : HIT_ORDER) {
+            int[] r = zoneRects.get(zone);
+            if (r != null && r[3] > 0
+                    && mx >= r[0] && mx < r[0] + r[2] && my >= r[1] && my < r[1] + r[3]) {
+                return zone;
             }
         }
         return Zone.NONE;

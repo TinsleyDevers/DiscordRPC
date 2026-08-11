@@ -19,7 +19,9 @@
   "discordrpc.zone.large_image": "Large Image",
   "discordrpc.zone.small_image": "Small Image",
   "discordrpc.zone.button1": "Button 1",
+  "discordrpc.zone.button1.empty": "Add a button...",
   "discordrpc.zone.button2": "Button 2",
+  "discordrpc.zone.button2.empty": "Add a second button...",
 
   "discordrpc.editor.details": "Details (first line)",
   "discordrpc.editor.state": "State (second line)",
@@ -79,6 +81,7 @@
   "discordrpc.status.server_profile_saved": "Server profile saved",
   "discordrpc.status.profile_reset": "Profile restored to defaults",
   "discordrpc.status.settings_reset": "Everything reset to defaults",
+  "discordrpc.status.reset_confirm": "This wipes all profiles - click again to confirm",
 
   "discordrpc.conflict.title": "%s is overriding your presence",
   "discordrpc.conflict.body": "%1$s has its own Discord status that hides this mod's. In the %1$s settings, turn off \"Discord RPC\", quit the app completely (check the tray), reopen it, then start the game again.",
@@ -87,6 +90,8 @@
   "discordrpc.button.done.tooltip": "Save all changes and close",
   "discordrpc.button.remove": "Remove",
   "discordrpc.button.delete": "Delete",
+  "discordrpc.button.confirm": "Confirm?",
+  "discordrpc.button.confirm_reset": "Really reset everything?",
   "discordrpc.button.add": "Add",
   "discordrpc.button.discard": "Discard",
   "discordrpc.button.dismiss": "Got It",
@@ -116,6 +121,7 @@
   "discordrpc.export.entry": "Export \"%s\"",
   "discordrpc.export.entry.tooltip": "Saved to config/discordrpc/profiles/",
   "discordrpc.export.done": "Exported \"%s\"",
+  "discordrpc.export.failed": "Could not export \"%s\"",
 
   "discordrpc.import.title": "Import Profiles",
   "discordrpc.import.hint": "Click a file to add it as a new profile.",
@@ -123,8 +129,10 @@
   "discordrpc.import.empty": "No profile files found.",
   "discordrpc.import.empty.hint": "Export a profile first, or drop .json files into config/discordrpc/profiles/.",
   "discordrpc.import.done": "Imported \"%s\"",
+  "discordrpc.import.applied": "Applied \"%s\" onto your \"%s\" profile",
   "discordrpc.import.failed": "Could not read \"%s\"",
   "discordrpc.import.deleted": "Deleted \"%s\"",
+  "discordrpc.import.delete_confirm": "Click Confirm to permanently delete \"%s\"",
   "discordrpc.import.delete_failed": "Could not delete that file",
   "discordrpc.import.delete.tooltip": "Delete this file from disk",
 

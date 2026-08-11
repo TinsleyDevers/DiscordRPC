@@ -9,9 +9,12 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
+
+import java.lang.ref.WeakReference;
 
 /**
  * Per-tick presence bookkeeping: tracks which screen/dimension/server the
@@ -28,7 +31,8 @@ public class PresenceTicker {
     private boolean wasInWorld = false;
     private String lastDimensionId = "";
     private String lastScreenKey = "";
-    private Screen lastScreen = null;
+    /** Weak so a closed screen (and the world it references) can be collected. */
+    private WeakReference<Screen> lastScreen = new WeakReference<>(null);
     private boolean conflictNoticeSent = false;
 
     // Previous-frame input state, used as the AFK activity signal.
@@ -81,8 +85,8 @@ public class PresenceTicker {
     /** Watches for screen changes to drive per-screen overrides in the main menu. */
     private void trackScreen(Minecraft mc) {
         Screen screen = mc.gui.screen();
-        if (screen == lastScreen) return;
-        lastScreen = screen;
+        if (screen == lastScreen.get()) return;
+        lastScreen = new WeakReference<>(screen);
         rpc.onPlayerActivity();
 
         String key = mapScreenToKey(screen);
@@ -141,6 +145,24 @@ public class PresenceTicker {
                 ? RichPresenceProfile.ContextType.SINGLEPLAYER
                 : RichPresenceProfile.ContextType.MULTIPLAYER;
         rpc.setContext(baseContext);
+        updatePartyInfo(mc, baseContext);
+    }
+
+    /**
+     * Feeds current player counts to the manager. The real server capacity is
+     * only known from the server-list ping; without it we report max 0 so the
+     * party is omitted instead of rendering as a permanently full "(n of n)".
+     */
+    private void updatePartyInfo(Minecraft mc, RichPresenceProfile.ContextType baseContext) {
+        if (baseContext != RichPresenceProfile.ContextType.MULTIPLAYER) {
+            rpc.setPartyInfo(0, 0);
+            return;
+        }
+        ClientPacketListener connection = mc.getConnection();
+        int online = connection != null ? connection.getOnlinePlayers().size() : 0;
+        ServerData data = mc.getCurrentServer();
+        int max = data != null && data.players != null ? data.players.max() : 0;
+        rpc.setPartyInfo(online, max);
     }
 
     /**

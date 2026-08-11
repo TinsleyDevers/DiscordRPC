@@ -93,8 +93,8 @@ public class ImagePickerWidget extends AbstractWidget {
         entries.forEach(e -> seen.add(e.key().toLowerCase()));
 
         if (localDir != null && Files.exists(localDir)) {
-            try {
-                Files.list(localDir)
+            try (var files = Files.list(localDir)) {
+                files
                     .filter(p -> {
                         String n = p.getFileName().toString().toLowerCase();
                         return n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg");
@@ -120,7 +120,10 @@ public class ImagePickerWidget extends AbstractWidget {
         if (!fn.endsWith(".png") && !fn.endsWith(".jpg") && !fn.endsWith(".jpeg")) return;
         try {
             if (Files.size(p) > 4 * 1024 * 1024) return;
-            NativeImage original = NativeImage.read(Files.newInputStream(p));
+            NativeImage original;
+            try (var in = Files.newInputStream(p)) {
+                original = NativeImage.read(in);
+            }
             NativeImage thumb = BundledImageRegistry.resample(original, THUMB_SIZE, THUMB_SIZE);
             original.close();
             String sanitized = key.toLowerCase().replaceAll("[^a-z0-9_.-]", "_");
@@ -251,7 +254,7 @@ public class ImagePickerWidget extends AbstractWidget {
         double mx = event.x();
         double my = event.y();
         int x = getX(), y = getY(), w = getWidth(), h = getHeight();
-        if (mx < x || mx > x + w - SB_W || my < y || my > y + h) return false;
+        if (mx < x || mx >= x + w - SB_W || my < y || my > y + h) return false;
 
         int stride = CELL + GAP;
         int startX = x + GAP;
@@ -293,10 +296,15 @@ public class ImagePickerWidget extends AbstractWidget {
 
     public boolean isEmpty() { return entries.isEmpty(); }
 
+    /**
+     * Decodes thumbnails for any not-yet-cached images in {@code dir}.
+     * Incremental: already-cached keys are skipped, so calling this on every
+     * screen open only pays for files added since the last call.
+     */
     public static void preloadFromDirectory(Path dir) {
         if (dir == null || !Files.exists(dir)) return;
-        try {
-            Files.list(dir)
+        try (var files = Files.list(dir)) {
+            files
                 .filter(p -> {
                     String n = p.getFileName().toString().toLowerCase();
                     return n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg");

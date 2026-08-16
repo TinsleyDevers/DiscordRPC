@@ -1,13 +1,32 @@
 # DiscordPresence page copy
 
-Paste-ready copy for the Modrinth and CurseForge pages. The Summary goes in the
-project summary field (it is the text search engines show, so it leads with
-what people actually type). Everything below the horizontal rule is the page
-body.
+Paste-ready copy for the Modrinth and CurseForge pages. Modrinth's on-site
+search only reads the project name, the summary and the categories, so those
+three carry the keywords people actually type (discord rich presence, discord
+rpc, custom discord status). The page body is for Google and for convincing
+humans once they land.
+
+## Name field
+
+Discord Presence
+
+(Displayed name only. The space makes searches for "presence" and "rich
+presence" match the name field, which search weighs highest. The slug stays
+`discordpresence`: changing it breaks every existing link and the publisher's
+dependency mapping.)
 
 ## Summary field
 
-Your Minecraft session on Discord, your way. Click the live Discord card to edit text, images, buttons and timestamp. Per-server profiles, 26 live placeholders, custom images and privacy toggles. Fabric, NeoForge and Forge.
+Take control of your Discord Rich Presence (RPC) from in game. Click the live
+Discord card to edit text, images and buttons, use 26 real time placeholders,
+and set a custom Discord status per server. Client side only. Fabric, NeoForge
+and Forge.
+
+## Categories
+
+Main category: Social. Additional: Utility. Social is where the Discord
+integration mods live and where people browse for them; Cosmetic puts it next
+to capes and animations.
 
 ## Page body
 
@@ -72,14 +91,17 @@ must be running (the browser version cannot show rich presence from mods).
 
 ## Supported versions
 
-| Minecraft | Loader | Notes |
-|-----------|--------|-------|
-| 26.2 | NeoForge, Fabric | Fabric needs [Fabric API](https://modrinth.com/mod/fabric-api) |
-| 26.1.x | NeoForge, Fabric | Fabric needs [Fabric API](https://modrinth.com/mod/fabric-api) |
-| 1.21.11 | NeoForge | |
-| 1.21.1 | NeoForge | Requires [ZambieLib](https://modrinth.com/mod/zambielib) |
-| 1.20.1 to 1.20.4 | Forge | |
+| Minecraft | Loader |
+|-----------|--------|
+| 26.2 | NeoForge, Fabric |
+| 26.1.x | NeoForge, Fabric |
+| 1.21.11 | NeoForge |
+| 1.21.1 | NeoForge |
+| 1.20.1 to 1.20.4 | Forge |
 
+Every version needs [ZambieLib](https://modrinth.com/mod/zambielib), and the
+Fabric builds also need [Fabric API](https://modrinth.com/mod/fabric-api);
+your launcher installs both automatically with the mod.
 [Mod Menu](https://modrinth.com/mod/modmenu) is optional on Fabric and adds a
 Configure button.
 
@@ -89,6 +111,12 @@ Configure button.
 
 **Does it work on multiplayer servers?** Yes, on any server. You can even give
 each server its own presence.
+
+**How is this different from other Discord RPC mods?** Most rich presence mods
+are set up through config files or menus of text fields. DiscordPresence puts
+the actual Discord card on screen and you click the part you want to change.
+If you want per-server profiles and live placeholders without editing JSON,
+that is what this mod is for.
 
 **Does it reconnect if Discord restarts?** Yes, automatically, with backoff.
 It also works with Flatpak and Snap installs of Discord on Linux.
@@ -102,3 +130,8 @@ It also works with Flatpak and Snap installs of Discord on Linux.
   size, sex and bloodline traits, with real pregnancies and a zoology journal.
 - [Broadback](https://modrinth.com/mod/broadback): creatures are solid, stand
   on a cow and ride along.
+
+[![BisectHosting](https://www.bisecthosting.com/partners/custom-banners/b756223b-dc97-441c-a066-87760affbeb1.webp)](https://bisecthosting.com/ATK)
+
+*[Want to host your own server? My servers are hosted with BisectHosting. Use
+promo code ATK for 25% off your first month.](https://bisecthosting.com/ATK)*

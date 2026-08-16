@@ -50,13 +50,17 @@ if (-not $SkipCurseforge -and -not $spec.curseforge.projectId) {
 $http = [System.Net.Http.HttpClient]::new()
 $http.Timeout = [TimeSpan]::FromMinutes(5)
 
-# Modrinth wants project IDs, humans write slugs. Resolve and cache.
+# Modrinth wants project IDs, humans write slugs. Resolve and cache. The
+# lookup sends the token when set, draft projects 404 for anonymous requests.
 $slugCache = @{}
 function Resolve-ModrinthId($slugOrId) {
     if ($slugCache.ContainsKey($slugOrId)) { return $slugCache[$slugOrId] }
     try {
-        $resp = $http.GetStringAsync("https://api.modrinth.com/v2/project/$slugOrId").Result
-        $id = ($resp | ConvertFrom-Json).id
+        $req = [System.Net.Http.HttpRequestMessage]::new('GET', "https://api.modrinth.com/v2/project/$slugOrId")
+        if ($modrinthToken) { $req.Headers.Add("Authorization", $modrinthToken) }
+        $resp = $http.SendAsync($req).Result
+        if (-not $resp.IsSuccessStatusCode) { throw "HTTP $([int]$resp.StatusCode)" }
+        $id = ($resp.Content.ReadAsStringAsync().Result | ConvertFrom-Json).id
         $slugCache[$slugOrId] = $id
         return $id
     } catch {

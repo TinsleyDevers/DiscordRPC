@@ -194,6 +194,10 @@ public class ProfileImportScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float pt) {
+        // The base render applies the background blur, so every custom
+        // element draws after it or the blur smears right over the text.
+        super.extractRenderState(g, mx, my, pt);
+
         boolean inWorld = minecraft.level != null;
         int bandTop = HEADER_HEIGHT;
         int bandBottom = height - FOOTER_HEIGHT;
@@ -214,8 +218,6 @@ public class ProfileImportScreen extends Screen {
             g.centeredText(font, Component.translatable("discordrpc.import.empty.hint"),
                     width / 2, height / 2 + 2, 0xFF808080);
         }
-
-        super.extractRenderState(g, mx, my, pt);
 
         long now = System.currentTimeMillis();
         if (statusMessage != null && statusUntilMs > now) {

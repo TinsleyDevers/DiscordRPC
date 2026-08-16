@@ -88,6 +88,10 @@ public class ProfileExportScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mx, int my, float pt) {
+        // The base render applies the background blur, so every custom
+        // element draws after it or the blur smears right over the text.
+        super.render(g, mx, my, pt);
+
         boolean inWorld = minecraft.level != null;
         int bandTop = HEADER_HEIGHT;
         int bandBottom = height - FOOTER_HEIGHT;
@@ -101,8 +105,6 @@ public class ProfileExportScreen extends Screen {
         g.drawCenteredString(font, getTitle(), width / 2, (HEADER_HEIGHT - 9) / 2 + 1, 0xFFFFFFFF);
         g.drawCenteredString(font, Component.translatable("discordrpc.export.hint"),
                 width / 2, bandTop + 4, 0xFFA0A0A0);
-
-        super.render(g, mx, my, pt);
 
         long now = System.currentTimeMillis();
         if (statusMessage != null && statusUntilMs > now) {

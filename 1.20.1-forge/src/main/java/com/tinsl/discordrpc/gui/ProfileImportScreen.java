@@ -187,7 +187,10 @@ public class ProfileImportScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mx, int my, float pt) {
+        // Custom text draws after super.render so it can never end up under
+        // the background layers; same ordering the 1.21+ blur requires.
         renderBackground(g);
+        super.render(g, mx, my, pt);
         int bandTop = HEADER_HEIGHT;
         int bandBottom = height - FOOTER_HEIGHT;
 
@@ -201,8 +204,6 @@ public class ProfileImportScreen extends Screen {
             g.drawCenteredString(font, Component.translatable("discordrpc.import.empty.hint"),
                     width / 2, height / 2 + 2, 0xFF808080);
         }
-
-        super.render(g, mx, my, pt);
 
         long now = System.currentTimeMillis();
         if (statusMessage != null && statusUntilMs > now) {

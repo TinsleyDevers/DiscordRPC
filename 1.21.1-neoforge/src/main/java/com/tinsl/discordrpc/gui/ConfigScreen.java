@@ -1362,9 +1362,6 @@ public class ConfigScreen extends Screen {
         preview.setShowTimestamp(editingProfile.getTimestampMode() != RichPresenceProfile.TimestampMode.NONE);
         preview.setSelectedZone(currentZone);
 
-        var rpc = DiscordRPCMod.getInstance().getRpcManager();
-        preview.setConnected(rpc != null && rpc.isConnected());
-
         if (editingProfile.getTimestampMode() == RichPresenceProfile.TimestampMode.ELAPSED) {
             long s = (System.currentTimeMillis() - openedAtMs) / 1000;
             preview.setElapsedTime(String.format("%02d:%02d elapsed", s / 60, s % 60));

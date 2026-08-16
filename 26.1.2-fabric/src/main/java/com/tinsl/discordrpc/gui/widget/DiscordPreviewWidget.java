@@ -50,8 +50,6 @@ public class DiscordPreviewWidget extends AbstractWidget {
     private static final int C_IMG_INNER  = 0xFF35373C;
     private static final int C_BTN        = 0xFF4E5058;
     private static final int C_BTN_HOVER  = 0xFF6D6F78;
-    private static final int C_GREEN      = 0xFF23A55A;
-    private static final int C_RED        = 0xFFED4245;
     private static final int C_SEP        = 0xFF3F4147;
     private static final int C_EMPTY      = 0xFF5C5E66;
     private static final int C_ZONE_HOVER = 0x28FFFFFF;
@@ -64,7 +62,6 @@ public class DiscordPreviewWidget extends AbstractWidget {
     private boolean showTimestamp = true;
     private boolean hasLargeImage = true;
     private boolean hasSmallImage = false;
-    private boolean isConnected = false;
     private Identifier largeImageTex;
     private Identifier smallImageTex;
 
@@ -97,11 +94,8 @@ public class DiscordPreviewWidget extends AbstractWidget {
         fillRounded(g, x - 1, y - 1, x + w + 1, y + h + 1, C_CARD_EDGE);
         fillRounded(g, x, y, x + w, y + h, C_CARD);
 
-        // Header row: "PLAYING A GAME" + connection dot
+        // Header row
         g.text(font, "PLAYING A GAME", x + pad, y + 6, C_HEADER, false);
-        int dotColor = isConnected ? C_GREEN : C_RED;
-        g.fill(x + w - 13, y + 6, x + w - 7, y + 12, dotColor);
-        g.fill(x + w - 12, y + 5, x + w - 8, y + 13, dotColor);
         g.fill(x + pad, y + 18, x + w - pad, y + 19, C_SEP);
 
         int cy = y + 24;
@@ -295,7 +289,6 @@ public class DiscordPreviewWidget extends AbstractWidget {
     public void setShowTimestamp(boolean v) { this.showTimestamp = v; }
     public void setHasLargeImage(boolean v) { this.hasLargeImage = v; }
     public void setHasSmallImage(boolean v) { this.hasSmallImage = v; }
-    public void setConnected(boolean v) { this.isConnected = v; }
     public void setLargeImageTexture(Identifier tex) { this.largeImageTex = tex; }
     public void setSmallImageTexture(Identifier tex) { this.smallImageTex = tex; }
     public void setSelectedZone(Zone z) { this.selectedZone = z; }

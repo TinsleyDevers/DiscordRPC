@@ -8,12 +8,14 @@ humans once they land.
 
 ## Name field
 
-Discord Presence
+Modrinth: Discord Presence
+CurseForge: DiscordPresence
 
 (Displayed name only. The space makes searches for "presence" and "rich
-presence" match the name field, which search weighs highest. The slug stays
-`discordpresence`: changing it breaks every existing link and the publisher's
-dependency mapping.)
+presence" match the name field, which search weighs highest. CurseForge
+requires globally unique names and "Discord Presence" is taken there, so the
+one word name stays. The slug stays `discordpresence` on both sites: changing
+it breaks every existing link and the publisher's dependency mapping.)
 
 ## Summary field
 

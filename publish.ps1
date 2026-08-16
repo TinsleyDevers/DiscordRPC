@@ -88,8 +88,11 @@ function Get-CurseforgeVersionIds($entry) {
             'forge'    { $wanted.Add('Forge') }
         }
     }
+    # CurseForge rejects uploads with nothing from the environment group,
+    # so "both" or an unset environment tags Client and Server.
     if ($entry.environment -eq 'client') { $wanted.Add('Client') }
     elseif ($entry.environment -eq 'server') { $wanted.Add('Server') }
+    else { $wanted.Add('Client'); $wanted.Add('Server') }
     if ($entry.javaVersion) { $wanted.Add($entry.javaVersion) }
 
     $ids = New-Object System.Collections.Generic.List[int]

@@ -7,12 +7,14 @@ issueTrackerURL="https://modrinth.com/mod/discordpresence"
 modId="discordrpc"
 version="${version}"
 displayName="DiscordPresence"
-logoFile="assets/discordrpc/images/minecraftlogo.png"
+logoFile="icon.png"
+logoBlur=false
 # Client-only mod: joining any server must not flag a version mismatch.
 displayTest="IGNORE_ALL_VERSION"
+displayURL="https://modrinth.com/mod/discordpresence"
 authors="ZambieD"
 description='''
-Show your Minecraft session on Discord — exactly the way you want it.
+Show your Minecraft session on Discord, exactly the way you want it.
 
 Open the editor (F6, or the Config button in the mod list) and click any part
 of the live Discord card to change it: text, images, buttons, timestamp. The

@@ -3,7 +3,7 @@
   "id": "discordrpc",
   "version": "${version}",
   "name": "DiscordPresence",
-  "description": "Show your Minecraft session on Discord — exactly the way you want it. Click any part of the live Discord card to edit text, images, buttons and timestamps. Profiles switch automatically between the main menu, singleplayer and multiplayer.",
+  "description": "Show your Minecraft session on Discord, exactly the way you want it. Click any part of the live Discord card to edit text, images, buttons and timestamps. Profiles switch automatically between the main menu, singleplayer and multiplayer.",
   "authors": [
     "ZambieD"
   ],
@@ -12,7 +12,7 @@
     "issues": "https://modrinth.com/mod/discordpresence"
   },
   "license": "MIT",
-  "icon": "assets/discordrpc/images/minecraft.png",
+  "icon": "icon.png",
   "environment": "client",
   "entrypoints": {
     "client": [

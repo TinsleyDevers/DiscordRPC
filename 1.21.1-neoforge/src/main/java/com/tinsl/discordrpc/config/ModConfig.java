@@ -11,7 +11,6 @@ import com.tinsl.discordrpc.DiscordRPCMod;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -244,15 +243,9 @@ public class ModConfig {
         }
     }
 
-    /** Write to a sibling temp file, then move over the target - a crash mid-write can never truncate the real file. */
+    /** Crash-safe write, shared with the rest of the mod family through ZambieLib. */
     private static void writeAtomic(Path target, String content) throws IOException {
-        Path tmp = target.resolveSibling(target.getFileName() + ".tmp");
-        Files.writeString(tmp, content, StandardCharsets.UTF_8);
-        try {
-            Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-        } catch (AtomicMoveNotSupportedException e) {
-            Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
-        }
+        com.tinsl.zambielib.util.JsonStore.writeAtomic(target, content);
     }
 
     public void resetToDefaults() {

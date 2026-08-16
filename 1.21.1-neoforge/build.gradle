@@ -6,8 +6,15 @@ plugins {
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 repositories {
+    mavenLocal()
     mavenCentral()
     maven { url = 'https://maven.neoforged.net/releases' }
+}
+
+dependencies {
+    // Shared internals. Published to the local maven repo from the ZambieLib
+    // project; ships as its own mod at runtime.
+    compileOnly 'com.tinsl.zambielib:zambielib:1.0.0'
 }
 
 neoForge {

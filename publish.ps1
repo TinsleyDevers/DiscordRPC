@@ -50,6 +50,15 @@ if (-not $SkipCurseforge -and -not $spec.curseforge.projectId) {
 $http = [System.Net.Http.HttpClient]::new()
 $http.Timeout = [TimeSpan]::FromMinutes(5)
 
+# Some APIs quote the credential back inside their error body (CurseForge
+# writes "Token provided: <the whole token>"), never let that reach the log.
+function Hide-Tokens($text) {
+    $t = "$text"
+    $t = [regex]::Replace($t, '(?i)(token provided:\s*)[^\s.,]+', '$1[hidden]')
+    $t = [regex]::Replace($t, '\b(mrp_|rp_|ghp_|gho_|github_pat_)[A-Za-z0-9_]+', '$1[hidden]')
+    return $t
+}
+
 # Modrinth wants project IDs, humans write slugs. Resolve and cache. The
 # lookup sends the token when set, draft projects 404 for anonymous requests.
 $slugCache = @{}
@@ -144,7 +153,7 @@ function Publish-Modrinth($entry, $jar) {
     if ($resp.IsSuccessStatusCode) {
         Write-Output "  Modrinth: uploaded $versionNumber"
     } else {
-        Write-Warning "  Modrinth upload failed ($($resp.StatusCode)): $body"
+        Write-Warning "  Modrinth upload failed ($($resp.StatusCode)): $(Hide-Tokens $body)"
     }
 }
 
@@ -183,7 +192,7 @@ function Publish-Curseforge($entry, $jar) {
     if ($resp.IsSuccessStatusCode) {
         Write-Output "  CurseForge: uploaded '$displayName' (file id $(($body | ConvertFrom-Json).id))"
     } else {
-        Write-Warning "  CurseForge upload failed ($($resp.StatusCode)): $body"
+        Write-Warning "  CurseForge upload failed ($($resp.StatusCode)): $(Hide-Tokens $body)"
     }
 }
 

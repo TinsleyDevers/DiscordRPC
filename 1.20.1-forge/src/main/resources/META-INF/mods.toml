@@ -33,6 +33,13 @@ Features:
 '''
 
 [[dependencies.discordrpc]]
+    modId="zambielib"
+    mandatory=true
+    versionRange="[1.0,)"
+    ordering="AFTER"
+    side="CLIENT"
+
+[[dependencies.discordrpc]]
     modId="forge"
     mandatory=true
     versionRange="[46,)"

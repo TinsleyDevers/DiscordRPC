@@ -1,8 +1,10 @@
 # Changelog
 
-## 1.2.1 (2026-08-10)
+## 1.2.1 (2026-08-16)
 
 Stability and correctness release: no new features, a lot of fixed ones.
+
+Also in this build: a proper mod icon, a full metadata pass so the mod list entry finally looks right, and the 1.21.1 build now runs on ZambieLib, which it requires from here on.
 
 ### Your config can no longer be lost
 

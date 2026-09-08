@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.2 (2026-09-08)
+
+Small maintenance release.
+
+- Every build now really runs on ZambieLib. 1.2.1 declared the dependency on all seven targets but only the 1.21.1 jar used it; the other six carried their own copy of the crash-safe config writer. All targets share the ZambieLib one now, so the config code is identical across versions again.
+- Builds pick up ZambieLib by target (1.1.0+<target>), which is what makes the above possible.
+- Nothing changes for players: ZambieLib 1.0.0 or newer next to the mod, same as before.
+
 ## 1.2.1 (2026-08-16)
 
 Stability and correctness release: no new features, a lot of fixed ones.

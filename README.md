@@ -13,13 +13,13 @@ and multiplayer.
 
 | Minecraft | Loader   | Java | Jar |
 |-----------|----------|------|-----|
-| 26.2      | NeoForge | 25   | `DiscordPresence-1.2.1+26.2-neoforge.jar` |
-| 26.2      | Fabric   | 25   | `DiscordPresence-1.2.1+26.2-fabric.jar` |
-| 26.1.x    | NeoForge | 25   | `DiscordPresence-1.2.1+26.1.2-neoforge.jar` |
-| 26.1.x    | Fabric   | 25   | `DiscordPresence-1.2.1+26.1.2-fabric.jar` |
-| 1.21.11   | NeoForge | 21   | `DiscordPresence-1.2.1+1.21.11-neoforge.jar` |
-| 1.21.1    | NeoForge | 21   | `DiscordPresence-1.2.1+1.21.1-neoforge.jar` |
-| 1.20.1 - 1.20.4 | Forge | 17  | `DiscordPresence-1.2.1+1.20.1-forge.jar` |
+| 26.2      | NeoForge | 25   | `DiscordPresence-1.2.2+26.2-neoforge.jar` |
+| 26.2      | Fabric   | 25   | `DiscordPresence-1.2.2+26.2-fabric.jar` |
+| 26.1.x    | NeoForge | 25   | `DiscordPresence-1.2.2+26.1.2-neoforge.jar` |
+| 26.1.x    | Fabric   | 25   | `DiscordPresence-1.2.2+26.1.2-fabric.jar` |
+| 1.21.11   | NeoForge | 21   | `DiscordPresence-1.2.2+1.21.11-neoforge.jar` |
+| 1.21.1    | NeoForge | 21   | `DiscordPresence-1.2.2+1.21.1-neoforge.jar` |
+| 1.20.1 - 1.20.4 | Forge | 17  | `DiscordPresence-1.2.2+1.20.1-forge.jar` |
 
 The Fabric builds need [Fabric API](https://modrinth.com/mod/fabric-api);
 [Mod Menu](https://modrinth.com/mod/modmenu) is optional but adds a Configure button.

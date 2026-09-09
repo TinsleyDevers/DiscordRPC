@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.3 (2026-09-09)
+
+- Each jar now says which Minecraft version it actually runs on. The 1.21.1 build claimed all of NeoForge 21.x and the 26.2 build claimed everything from 26.2 up, so the download pages offered versions the jar would refuse. Nothing about the mod changed, only what it admits to supporting.
+- The default singleplayer profile shows "Overworld, Plains" instead of using a dash between them.
+- Asks for ZambieLib 1.1 or newer, matching what it is built against.
+- Inside the repo: the config model, the profile model, the Discord socket and the presence manager were seven identical copies, one per target. They live in common/ now, so a fix lands once instead of seven times.
+
 ## 1.2.2 (2026-09-08)
 
 Small maintenance release.

@@ -35,20 +35,20 @@ Features:
 [[dependencies.discordrpc]]
     modId="zambielib"
     type="required"
-    versionRange="[1.0,)"
+    versionRange="[1.1,)"
     ordering="AFTER"
     side="CLIENT"
 
 [[dependencies.discordrpc]]
     modId="neoforge"
     type="required"
-    versionRange="[26.2,)"
+    versionRange="[26.2,26.3)"
     ordering="NONE"
     side="CLIENT"
 
 [[dependencies.discordrpc]]
     modId="minecraft"
     type="required"
-    versionRange="[26.2,27)"
+    versionRange="[26.2,26.3)"
     ordering="NONE"
     side="CLIENT"

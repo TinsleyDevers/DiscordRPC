@@ -354,7 +354,7 @@ public class RichPresenceProfile {
         p.contextType = ContextType.SINGLEPLAYER;
         p.priority = 20;
         p.details = "Playing Singleplayer";
-        p.state = "{dimension} \u2014 {biome}";
+        p.state = "{dimension}, {biome}";
         p.largeImageKey = "minecraftlogo";
         p.largeImageText = "{world}";
         p.timestampMode = TimestampMode.ELAPSED;

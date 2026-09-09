@@ -34,7 +34,7 @@ legacyForge {
 dependencies {
     // Shared internals, published to the local maven repo from the ZambieLib
     // project (gradlew publishToMavenLocal there). Ships as its own mod at runtime.
-    compileOnly 'com.tinsl.zambielib:zambielib:1.1.0+1.20.1-forge'
+    compileOnly 'com.tinsl.zambielib:zambielib:1.1.1+1.20.1-forge'
 }
 
 base.archivesName = 'DiscordPresence'

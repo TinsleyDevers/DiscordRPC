@@ -9,6 +9,11 @@
 //   26.2-neoforge      Minecraft 26.2,    NeoForge 26.2.x,  Java 25
 //   26.2-fabric        Minecraft 26.2,    Fabric Loader,    Java 25
 //
+// common/ holds the code that is identical on every target: the config model,
+// the profile model, the Discord IPC socket and the presence manager. None of
+// it touches a Minecraft class, so one copy compiles everywhere. Anything that
+// touches a renamed API (the screens and widgets) stays per target.
+//
 // Requires Gradle 9.7 running on Java 25 (fabric-loom needs the newer JVM;
 // per-project toolchains still compile 1.20.1 with 17 and 1.21.x with 21).
 //
@@ -18,7 +23,7 @@
 
 allprojects {
     group   = 'com.tinsl.discordrpc'
-    version = '1.2.2'
+    version = '1.2.3'
 }
 
 // The ONLY place the mod version lives. Each jar gets "<version>+<target>",
@@ -26,6 +31,11 @@ allprojects {
 // time - a release bump is a one-line change here.
 subprojects {
     version = "${rootProject.version}+${project.name}"
+
+    // Every target compiles the shared sources alongside its own.
+    plugins.withId('java') {
+        sourceSets.main.java.srcDir rootProject.file('common/src/main/java')
+    }
 
     tasks.withType(ProcessResources).configureEach {
         var expandProps = ['version': version.toString()]

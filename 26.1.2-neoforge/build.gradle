@@ -34,7 +34,7 @@ neoForge {
 dependencies {
     // Shared internals, published to the local maven repo from the ZambieLib
     // project (gradlew publishToMavenLocal there). Ships as its own mod at runtime.
-    compileOnly 'com.tinsl.zambielib:zambielib:1.1.0+26.1.2-neoforge'
+    compileOnly 'com.tinsl.zambielib:zambielib:1.1.1+26.1.2-neoforge'
 }
 
 base.archivesName = 'DiscordPresence'

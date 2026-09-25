@@ -11,6 +11,7 @@ Your own images on Discord, no bot or developer account needed.
 - The same file is never uploaded twice, and a copy of every image you upload is kept in config/discordrpc/images.
 - Fixed: images dropped into config/discordrpc/images used to show in the editor but never on Discord, because Discord had no way to reach them. They now sit under Your Images in the picker, and clicking one uploads it. The editor also warns when the current image is one Discord can't show.
 - Fixed: resizing the game window while editing a screen or dimension override threw the override away, and doing it while editing a server profile made Done write that server profile over your regular Multiplayer one. The editor now keeps whatever you had open.
+- Fixed: pressing Done with a server profile open lost any unsaved changes to your regular Multiplayer profile. Restore Default Profile inside a server profile could also turn that server profile into a copy of the Multiplayer defaults; it now resets just the server profile and keeps its name and IP filter.
 - The image field takes up to 256 characters so full links fit.
 
 ## 1.2.3 (2026-09-09)

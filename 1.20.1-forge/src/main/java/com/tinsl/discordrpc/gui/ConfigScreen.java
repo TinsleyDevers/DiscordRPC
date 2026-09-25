@@ -514,15 +514,7 @@ public class ConfigScreen extends Screen {
 
     private void saveAndExitServerProfile() {
         rememberLinkedImages();
-        if (editingServerProfile != null) {
-            RichPresenceProfile copy = baseCopies.get(TAB_MULTI);
-            if (copy != null) {
-                editingServerProfile.applyPresenceFrom(copy);
-                editingServerProfile.setName(uniqueProfileName(copy.getName(), editingServerProfile));
-                editingServerProfile.setContextFilter(copy.getContextFilter());
-                applyOverridesFrom(editingServerProfile, copy);
-            }
-        }
+        applyServerProfileEdits();
         config.save();
 
         var rpc = DiscordRPCMod.getInstance().getRpcManager();
@@ -533,6 +525,16 @@ public class ConfigScreen extends Screen {
 
         flashStatus(Component.translatable("discordrpc.status.server_profile_saved"));
         exitServerProfileEdit();
+    }
+
+    /** Copies the open server profile's edit buffer onto the saved server profile. */
+    private void applyServerProfileEdits() {
+        RichPresenceProfile copy = baseCopies.get(TAB_MULTI);
+        if (editingServerProfile == null || copy == null) return;
+        editingServerProfile.applyPresenceFrom(copy);
+        editingServerProfile.setName(uniqueProfileName(copy.getName(), editingServerProfile));
+        editingServerProfile.setContextFilter(copy.getContextFilter());
+        applyOverridesFrom(editingServerProfile, copy);
     }
 
     private void selectServerProfile(RichPresenceProfile sp) {
@@ -1640,6 +1642,13 @@ public class ConfigScreen extends Screen {
         rememberLinkedImages();
         closed = true;
 
+        // An open server profile saves on its own. Then the Multiplayer tab gets
+        // its parked buffer back, or its unsaved edits would never be written.
+        if (editingServerProfile != null) {
+            applyServerProfileEdits();
+            restoreMultiBase();
+        }
+
         for (Map.Entry<Integer, RichPresenceProfile> entry : realProfiles.entrySet()) {
             RichPresenceProfile copy = baseCopies.get(entry.getKey());
             if (copy != null) {
@@ -1690,11 +1699,18 @@ public class ConfigScreen extends Screen {
     private void restoreCurrentTabDefaults() {
         RichPresenceProfile.ContextType ctx = TAB_CONTEXTS[currentTab];
         if (ctx == null) return;
-        RichPresenceProfile fresh = getDefaultForContext(ctx);
+        RichPresenceProfile fresh;
+        if (currentTab == TAB_MULTI && editingServerProfile != null) {
+            // Reset the server profile that is open, keeping its name and IP
+            // filter. It stays open, so Save and Discard still mean what they say.
+            RichPresenceProfile open = baseCopies.get(TAB_MULTI);
+            fresh = RichPresenceProfile.createServerProfile(open.getName(), open.getContextFilter());
+        } else {
+            fresh = getDefaultForContext(ctx);
+        }
         baseCopies.put(currentTab, fresh);
         editingProfile = fresh;
         currentZone = DiscordPreviewWidget.Zone.NONE;
-        editingServerProfile = null;
         editingOverrideKey = null;
         overrideParentProfile = null;
         addOverrideMode = false;

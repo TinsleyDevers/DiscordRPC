@@ -222,7 +222,10 @@ public class ConfigScreen extends Screen {
 
         computeLayout();
         loadServerProfiles();
-        loadProfileForTab(currentTab);
+        // init() runs again on every resize and when a sub screen closes. Keep
+        // the buffer that is open (an override or a server profile) instead of
+        // swapping it for the tab's base copy, which would throw those edits away.
+        if (editingProfile == null) loadProfileForTab(currentTab);
 
         tabManager = new TabManager(this::addRenderableWidget, this::removeWidget);
         tabBar = TabNavigationBar.builder(tabManager, width)

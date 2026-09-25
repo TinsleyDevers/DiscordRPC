@@ -10,6 +10,7 @@ Your own images on Discord, no bot or developer account needed.
 - Uploads are cleaned up first: big pictures are shrunk to 1024 pixels, tiny pixel art is scaled up with sharp edges so Discord doesn't blur it, and photo metadata such as location is stripped. GIFs are sent as they are so they stay animated.
 - The same file is never uploaded twice, and a copy of every image you upload is kept in config/discordrpc/images.
 - Fixed: images dropped into config/discordrpc/images used to show in the editor but never on Discord, because Discord had no way to reach them. They now sit under Your Images in the picker, and clicking one uploads it. The editor also warns when the current image is one Discord can't show.
+- Fixed: resizing the game window while editing a screen or dimension override threw the override away, and doing it while editing a server profile made Done write that server profile over your regular Multiplayer one. The editor now keeps whatever you had open.
 - The image field takes up to 256 characters so full links fit.
 
 ## 1.2.3 (2026-09-09)

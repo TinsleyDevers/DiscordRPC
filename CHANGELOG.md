@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.0 (2026-09-25)
+
+Your own images on Discord, no bot or developer account needed.
+
+- Open the Large or Small Image editor and press Upload Image..., or drag a PNG, JPG or GIF onto the game window. The mod uploads it to catbox.moe (a free image host) and your presence shows it on the next update. The first upload asks once before anything leaves your computer.
+- Everything you upload or link lands in a new Recent row at the top of the picker, newest first, with thumbnails, so switching back is one click. Right-click one to drop it from the list.
+- You can also paste a link to any image online into the image field. The card preview in the editor loads it so you can see what Discord will show.
+- Uploads are cleaned up first: big pictures are shrunk to 1024 pixels, tiny pixel art is scaled up with sharp edges so Discord doesn't blur it, and photo metadata such as location is stripped. GIFs are sent as they are so they stay animated.
+- The same file is never uploaded twice, and a copy of every image you upload is kept in config/discordrpc/images.
+- Fixed: images dropped into config/discordrpc/images used to show in the editor but never on Discord, because Discord had no way to reach them. They now sit under Your Images in the picker, and clicking one uploads it. The editor also warns when the current image is one Discord can't show.
+- The image field takes up to 256 characters so full links fit.
+
 ## 1.2.3 (2026-09-09)
 
 - Each jar now says which Minecraft version it actually runs on. The 1.21.1 build claimed all of NeoForge 21.x and the 26.2 build claimed everything from 26.2 up, so the download pages offered versions the jar would refuse. Nothing about the mod changed, only what it admits to supporting.

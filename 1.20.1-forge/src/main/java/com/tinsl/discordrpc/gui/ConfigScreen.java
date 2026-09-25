@@ -9,6 +9,9 @@ import com.tinsl.discordrpc.core.LauncherConflict;
 import com.tinsl.discordrpc.gui.widget.BundledImageRegistry;
 import com.tinsl.discordrpc.gui.widget.DiscordPreviewWidget;
 import com.tinsl.discordrpc.gui.widget.ImagePickerWidget;
+import com.tinsl.discordrpc.images.ImageException;
+import com.tinsl.discordrpc.images.ImageFileChooser;
+import com.tinsl.discordrpc.images.ImageLibrary;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -25,11 +28,13 @@ import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.Util;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
@@ -110,7 +115,22 @@ public class ConfigScreen extends Screen {
     private EditBox addOverrideCustomBox = null;
 
     private Component statusMessage = null;
+    private int statusColor = COLOR_GREEN;
     private long statusUntilMs = 0;
+    /** Set once the screen is done, so late upload results don't touch dead buffers. */
+    private boolean closed = false;
+
+    // Image uploads
+    /** File whose upload is running, null when idle. Only one at a time. */
+    private Path uploadingFile = null;
+    /** File waiting on the one-time "is uploading OK?" question. */
+    private Path consentFile = null;
+    private boolean consentForLarge = true;
+    /** Where the one-line image status goes in the image editor, -1 when hidden. */
+    private int imageStatusX, imageStatusY = -1, imageStatusW;
+    private ImagePickerWidget imagePicker = null;
+    private DiscordPreviewWidget.Zone imagePickerZone = null;
+    private int imagePickerScroll = 0;
     /** Screen-open time, so the preview's elapsed clock starts at 00:00. */
     private final long openedAtMs = System.currentTimeMillis();
 
@@ -145,6 +165,7 @@ public class ConfigScreen extends Screen {
         this.parent = parent;
         this.config = DiscordRPCMod.getInstance().getModConfig();
         this.currentTab = detectInitialTab();
+        ImagePickerWidget.retryFailedLinks();
     }
 
     private int detectInitialTab() {
@@ -357,8 +378,14 @@ public class ConfigScreen extends Screen {
     }
 
     private void rebuildContent() {
+        // Keep the picker's scroll while the same image is being edited.
+        imagePickerScroll = imagePicker != null && imagePickerZone == currentZone ? imagePicker.getScroll() : 0;
         clearDynamic();
         applyPreviewVisibility();
+        if (consentFile != null && currentZone != (consentForLarge
+                ? DiscordPreviewWidget.Zone.LARGE_IMAGE : DiscordPreviewWidget.Zone.SMALL_IMAGE)) {
+            consentFile = null;
+        }
 
         if (currentTab == TAB_SETTINGS) {
             buildSettingsPanel();
@@ -483,6 +510,7 @@ public class ConfigScreen extends Screen {
     }
 
     private void saveAndExitServerProfile() {
+        rememberLinkedImages();
         if (editingServerProfile != null) {
             RichPresenceProfile copy = baseCopies.get(TAB_MULTI);
             if (copy != null) {
@@ -816,9 +844,10 @@ public class ConfigScreen extends Screen {
     private int addOverrideFieldRow(int x, int y, int w, String labelKey,
                                     String currentVal, String parentVal, DiscordPreviewWidget.Zone zone) {
         boolean overridden = !eq(currentVal, parentVal);
+        String shown = isImageZone(zone) ? config.getImageLibrary().displayName(currentVal) : currentVal;
         Component status = overridden
                 ? Component.literal(Component.translatable("discordrpc.override.state.overridden").getString()
-                        + (currentVal == null || currentVal.isEmpty() ? "" : ": " + cap(currentVal, 16)))
+                        + (shown == null || shown.isEmpty() ? "" : ": " + cap(shown, 16)))
                         .withStyle(s -> s.withColor(0x55FF55))
                 : Component.translatable("discordrpc.override.state.inherited").withStyle(s -> s.withColor(0x999999));
         Component label = Component.translatable(labelKey).append(Component.literal(" - ")).append(status);
@@ -906,6 +935,18 @@ public class ConfigScreen extends Screen {
             if (preview != null) preview.setSelectedZone(DiscordPreviewWidget.Zone.NONE);
             rebuildContent();
         }).bounds(x, y, 60, 20).build());
+        if (isImageZone(currentZone)) {
+            boolean isLarge = currentZone == DiscordPreviewWidget.Zone.LARGE_IMAGE;
+            Button upload = Button.builder(Component.translatable(uploadingFile != null
+                                    ? "discordrpc.button.uploading" : "discordrpc.button.upload_image"),
+                            b -> chooseImageFile(isLarge))
+                    .bounds(x + 64, y, w - 64, 20)
+                    .tooltip(Tooltip.create(Component.translatable("discordrpc.button.upload_image.tooltip",
+                            ImageLibrary.hostName())))
+                    .build();
+            upload.active = uploadingFile == null && consentFile == null;
+            addDynamic(upload);
+        }
         y += 26;
 
         switch (currentZone) {
@@ -957,12 +998,15 @@ public class ConfigScreen extends Screen {
 
         y = addFieldLabel(x, y, "discordrpc.editor.image_key");
         EditBox keyBox = new EditBox(font, x, y, w, 20, Component.translatable("discordrpc.editor.image_key"));
-        keyBox.setHint(Component.literal("minecraft"));
-        keyBox.setMaxLength(64);
+        keyBox.setHint(Component.translatable("discordrpc.editor.image_key.hint"));
+        keyBox.setMaxLength(256);
         keyBox.setValue(currentKey);
+        keyBox.setTooltip(Tooltip.create(Component.translatable("discordrpc.editor.image_key.tooltip")));
         keyBox.setResponder(s -> {
-            if (isLarge) editingProfile.setLargeImageKey(s);
-            else editingProfile.setSmallImageKey(s);
+            String v = s.trim();
+            if (isLarge) editingProfile.setLargeImageKey(v);
+            else editingProfile.setSmallImageKey(v);
+            if (imagePicker != null) imagePicker.setSelectedKey(v);
             updatePreview();
         });
         addDynamic(keyBox);
@@ -992,18 +1036,229 @@ public class ConfigScreen extends Screen {
             });
         }
 
+        if (consentFile != null) {
+            buildUploadConsent(x, y + 2, w);
+            return;
+        }
+
+        imageStatusX = x;
+        imageStatusY = y + 1;
+        imageStatusW = w;
+        y += 13;
+
         int pickerH = panelBottom - y;
         if (pickerH >= 48) {
-            ImagePickerWidget picker = new ImagePickerWidget(
-                    x, y, w, pickerH, config.getImagesDir(), !isLarge, key -> {
-                        keyBox.setValue(key);
-                        if (isLarge) editingProfile.setLargeImageKey(key);
-                        else editingProfile.setSmallImageKey(key);
-                        updatePreview();
+            ImageLibrary library = config.getImageLibrary();
+            imagePicker = new ImagePickerWidget(x, y, w, pickerH, config.getImagesDir(), library, !isLarge,
+                    new ImagePickerWidget.Listener() {
+                        @Override
+                        public void onPick(String key) {
+                            keyBox.setValue(key);
+                            library.markUsed(key);
+                        }
+
+                        @Override
+                        public void onUploadFile(Path file) {
+                            requestUpload(file, isLarge);
+                        }
+
+                        @Override
+                        public void onForget(String url) {
+                            String name = library.displayName(url);
+                            library.remove(url);
+                            flashStatus(Component.translatable("discordrpc.upload.forgotten", name));
+                            rebuildContent();
+                        }
                     });
-            picker.setSelectedKey(currentKey);
-            addDynamic(picker);
+            imagePicker.setSelectedKey(currentKey);
+            imagePicker.setBusyFile(uploadingFile);
+            imagePicker.setScroll(imagePickerScroll);
+            imagePickerZone = currentZone;
+            addDynamic(imagePicker);
         }
+    }
+
+    /** The one-time question before the first upload: images go to a public host. */
+    private void buildUploadConsent(int x, int y, int w) {
+        Component title = Component.translatable("discordrpc.upload.consent.title",
+                cap(consentFile.getFileName().toString(), 28));
+        addText(title, x, y, COLOR_WHITE, true);
+        y += 12;
+        Component body = Component.translatable("discordrpc.upload.consent.body", ImageLibrary.hostName());
+        addWrappedText(body, x, y, w, COLOR_LABEL, false);
+        y += wrappedHeight(body, w) + 6;
+
+        int half = (w - 4) / 2;
+        addDynamic(Button.builder(Component.translatable("discordrpc.button.upload"), b -> {
+                    config.setImageUploadsAllowed(true);
+                    config.save();
+                    Path file = consentFile;
+                    consentFile = null;
+                    startUpload(file, consentForLarge);
+                })
+                .bounds(x, y, half, 20).build());
+        addDynamic(Button.builder(CommonComponents.GUI_CANCEL, b -> {
+                    consentFile = null;
+                    rebuildContent();
+                })
+                .bounds(x + half + 4, y, w - half - 4, 20).build());
+    }
+
+    private static boolean isImageZone(DiscordPreviewWidget.Zone zone) {
+        return zone == DiscordPreviewWidget.Zone.LARGE_IMAGE || zone == DiscordPreviewWidget.Zone.SMALL_IMAGE;
+    }
+
+    /** Opens the system file chooser; the chosen file goes through {@link #requestUpload}. */
+    private void chooseImageFile(boolean isLarge) {
+        if (uploadingFile != null || ImageFileChooser.isOpen()) return;
+        ImageFileChooser.choose(
+                        Component.translatable("discordrpc.upload.choose_title").getString(),
+                        Component.translatable("discordrpc.upload.choose_filter").getString())
+                .thenAccept(file -> {
+                    if (file != null) minecraft.execute(() -> requestUpload(file, isLarge));
+                });
+    }
+
+    /** Every way an image arrives ends up here: the file chooser, drag and drop, or a click in Your Images. */
+    private void requestUpload(Path file, boolean isLarge) {
+        if (closed || editingProfile == null || currentTab == TAB_SETTINGS) return;
+        if (uploadingFile != null) {
+            flashStatus(Component.translatable("discordrpc.upload.busy"), COLOR_YELLOW);
+            return;
+        }
+        if (!ImageLibrary.isImageFileName(file.getFileName().toString())) {
+            flashStatus(Component.translatable("discordrpc.upload.error.type"), COLOR_RED);
+            return;
+        }
+
+        DiscordPreviewWidget.Zone zone = isLarge ? DiscordPreviewWidget.Zone.LARGE_IMAGE : DiscordPreviewWidget.Zone.SMALL_IMAGE;
+        if (currentZone != zone) {
+            currentZone = zone;
+            addOverrideMode = false;
+            if (preview != null) preview.setSelectedZone(zone);
+        }
+
+        if (!config.isImageUploadsAllowed()) {
+            consentFile = file;
+            consentForLarge = isLarge;
+            rebuildContent();
+            return;
+        }
+        startUpload(file, isLarge);
+    }
+
+    private void startUpload(Path file, boolean isLarge) {
+        // The buffer being edited right now gets the link, even if the
+        // player wanders to another tab while the upload runs.
+        RichPresenceProfile target = editingProfile;
+        uploadingFile = file;
+        rebuildContent();
+        config.getImageLibrary().upload(file).whenComplete((entry, err) ->
+                minecraft.execute(() -> finishUpload(target, isLarge, entry, err)));
+    }
+
+    private void finishUpload(RichPresenceProfile target, boolean isLarge, ImageLibrary.Entry entry, Throwable err) {
+        uploadingFile = null;
+        if (entry != null) {
+            if (isLarge) target.setLargeImageKey(entry.url());
+            else target.setSmallImageKey(entry.url());
+            flashStatus(Component.translatable("discordrpc.upload.done", entry.name()), COLOR_GREEN, 5000);
+        } else {
+            flashStatus(describe(err), COLOR_RED, 8000);
+        }
+        if (closed) return;
+        if (isImageZone(currentZone)) rebuildContent();
+        updatePreview();
+    }
+
+    private static Component describe(Throwable err) {
+        Throwable cause = err instanceof CompletionException && err.getCause() != null ? err.getCause() : err;
+        if (cause instanceof ImageException ie) return Component.translatable(ie.langKey(), ie.args());
+        DiscordRPCMod.LOGGER.warn("Image upload failed", cause);
+        return Component.translatable("discordrpc.upload.error.unknown");
+    }
+
+    /** The line above the picker: upload progress, a warning about the current image, or a tip. */
+    private void renderImageStatus(GuiGraphics g) {
+        String key = currentZone == DiscordPreviewWidget.Zone.SMALL_IMAGE
+                ? editingProfile.getSmallImageKey() : editingProfile.getLargeImageKey();
+        Component msg;
+        int color = COLOR_HINT;
+        if (uploadingFile != null) {
+            String dots = ".".repeat(1 + (int) (System.currentTimeMillis() / 400 % 3));
+            msg = Component.translatable("discordrpc.upload.progress", uploadingFile.getFileName().toString())
+                    .append(Component.literal(dots));
+            color = COLOR_YELLOW;
+        } else if (key == null || key.isEmpty() || ImagePickerWidget.isBuiltIn(key)) {
+            msg = Component.translatable("discordrpc.upload.tip");
+        } else if (ImageLibrary.isLink(key)) {
+            ImageException linkError = ImagePickerWidget.linkError(key);
+            if (linkError != null) {
+                msg = Component.translatable(linkError.langKey(), linkError.args());
+                color = COLOR_RED;
+            } else if (ImagePickerWidget.isLinkLoading(key)) {
+                msg = Component.translatable("discordrpc.upload.link_loading");
+            } else {
+                msg = Component.translatable("discordrpc.upload.tip");
+            }
+        } else if (config.getImagePath(key) != null) {
+            msg = Component.translatable("discordrpc.upload.warn_local");
+            color = COLOR_GOLD;
+        } else {
+            msg = Component.translatable("discordrpc.upload.warn_unknown");
+            color = COLOR_GOLD;
+        }
+        g.drawString(font, fitWidth(msg.getString(), imageStatusW), imageStatusX, imageStatusY, color, false);
+    }
+
+    /** Cuts a line down to {@code maxW} pixels, ending in ".." when it had to cut. */
+    private String fitWidth(String text, int maxW) {
+        if (font.width(text) <= maxW) return text;
+        String t = text;
+        while (t.length() > 1 && font.width(t + "..") > maxW) t = t.substring(0, t.length() - 1);
+        return t + "..";
+    }
+
+    @Override
+    public void onFilesDrop(List<Path> paths) {
+        Path image = null;
+        for (Path p : paths) {
+            if (ImageLibrary.isImageFileName(p.getFileName().toString())) {
+                image = p;
+                break;
+            }
+        }
+        if (image == null) {
+            flashStatus(Component.translatable("discordrpc.upload.error.type"), COLOR_RED);
+            return;
+        }
+        if (currentTab == TAB_SETTINGS || editingProfile == null) {
+            flashStatus(Component.translatable("discordrpc.upload.drop_on_presence_tab"), COLOR_YELLOW);
+            return;
+        }
+        requestUpload(image, currentZone != DiscordPreviewWidget.Zone.SMALL_IMAGE);
+    }
+
+    /** Puts every link the player typed into Recent, so it's one click away next time. */
+    private void rememberLinkedImages() {
+        ImageLibrary library = config.getImageLibrary();
+        List<RichPresenceProfile> edited = new ArrayList<>(baseCopies.values());
+        if (stashedMultiBase != null) edited.add(stashedMultiBase);
+        for (RichPresenceProfile p : edited) {
+            rememberLink(library, p.getLargeImageKey());
+            rememberLink(library, p.getSmallImageKey());
+            List<RichPresenceProfile.Override> overrides = new ArrayList<>(p.getDimensionOverrides().values());
+            overrides.addAll(p.getScreenOverrides().values());
+            for (RichPresenceProfile.Override ov : overrides) {
+                rememberLink(library, ov.largeImageKey);
+                rememberLink(library, ov.smallImageKey);
+            }
+        }
+    }
+
+    /** Links that failed to load stay out of Recent; there's nothing there to pick again. */
+    private static void rememberLink(ImageLibrary library, String key) {
+        if (ImageLibrary.isLink(key) && ImagePickerWidget.linkError(key) == null) library.remember(key);
     }
 
     private void buildTimestampEditor(int x, int y, int w) {
@@ -1283,6 +1538,10 @@ public class ConfigScreen extends Screen {
             renderVariablesReference(g, variablesY);
         }
 
+        if (imageStatusY >= 0 && editingProfile != null) {
+            renderImageStatus(g);
+        }
+
         if (previewVisible() && preview != null) {
             renderPreviewHint(g);
         }
@@ -1293,7 +1552,7 @@ public class ConfigScreen extends Screen {
             int sx = (width - sw) / 2;
             int sy = contentBottom - 14;
             g.fill(sx - 4, sy - 2, sx + sw + 4, sy + 10, 0x90000000);
-            g.drawString(font, statusMessage, sx, sy, COLOR_GREEN, true);
+            g.drawString(font, statusMessage, sx, sy, statusColor, true);
         }
     }
 
@@ -1375,6 +1634,8 @@ public class ConfigScreen extends Screen {
 
     private void saveAndClose() {
         commitOverrideIfEditing();
+        rememberLinkedImages();
+        closed = true;
 
         for (Map.Entry<Integer, RichPresenceProfile> entry : realProfiles.entrySet()) {
             RichPresenceProfile copy = baseCopies.get(entry.getKey());
@@ -1406,6 +1667,7 @@ public class ConfigScreen extends Screen {
 
     @Override
     public void onClose() {
+        closed = true;
         baseCopies.clear();
         realProfiles.clear();
         minecraft.setScreen(parent);
@@ -1439,8 +1701,17 @@ public class ConfigScreen extends Screen {
     }
 
     void flashStatus(Component msg) {
+        flashStatus(msg, COLOR_GREEN, 2200);
+    }
+
+    private void flashStatus(Component msg, int color) {
+        flashStatus(msg, color, 4000);
+    }
+
+    private void flashStatus(Component msg, int color, long ms) {
         statusMessage = msg;
-        statusUntilMs = System.currentTimeMillis() + 2200;
+        statusColor = color;
+        statusUntilMs = System.currentTimeMillis() + ms;
     }
 
     /** Re-loads all profiles from config (used after import). */
@@ -1466,6 +1737,8 @@ public class ConfigScreen extends Screen {
         textLines.clear();
         variablesY = -1;
         addOverrideCustomBox = null;
+        imageStatusY = -1;
+        imagePicker = null;
     }
 
     private void addText(Component text, int x, int y, int color, boolean shadow) {

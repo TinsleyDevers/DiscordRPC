@@ -7,6 +7,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.tinsl.discordrpc.DiscordRPCMod;
+import com.tinsl.discordrpc.images.ImageLibrary;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -51,6 +52,8 @@ public class ModConfig {
     private boolean hideServerIp = false;
     private boolean hideCoordinates = false;
     private boolean launcherWarningDismissed = false;
+    /** The player agreed to have their images uploaded to the image host. */
+    private boolean imageUploadsAllowed = false;
 
     /** Copy-on-write: the GUI mutates on the render thread while the RPC worker iterates. */
     private final List<RichPresenceProfile> profiles = new CopyOnWriteArrayList<>();
@@ -60,6 +63,7 @@ public class ModConfig {
     private final Path configFile;
     private final Path imagesDir;
     private final Path profilesDir;
+    private final ImageLibrary imageLibrary;
 
     /** @param loaderConfigDir the loader's config directory (e.g. {@code .minecraft/config}) */
     public ModConfig(Path loaderConfigDir) {
@@ -67,6 +71,7 @@ public class ModConfig {
         configFile = configDir.resolve("config.json");
         imagesDir = configDir.resolve("images");
         profilesDir = configDir.resolve("profiles");
+        imageLibrary = new ImageLibrary(configDir, imagesDir);
     }
 
     /**
@@ -125,6 +130,7 @@ public class ModConfig {
             DiscordRPCMod.LOGGER.error("Failed to create config directories", e);
         }
         copyBundledImages();
+        imageLibrary.load();
 
         boolean safeToSaveDefaults = true;
         if (Files.exists(configFile)) {
@@ -151,6 +157,7 @@ public class ModConfig {
                 hideServerIp = readBool(root, "hideServerIp", hideServerIp);
                 hideCoordinates = readBool(root, "hideCoordinates", hideCoordinates);
                 launcherWarningDismissed = readBool(root, "launcherWarningDismissed", launcherWarningDismissed);
+                imageUploadsAllowed = readBool(root, "imageUploadsAllowed", imageUploadsAllowed);
                 activeProfileIndex = readInt(root, "activeProfileIndex", activeProfileIndex);
 
                 profiles.clear();
@@ -229,6 +236,7 @@ public class ModConfig {
             root.addProperty("hideServerIp", hideServerIp);
             root.addProperty("hideCoordinates", hideCoordinates);
             root.addProperty("launcherWarningDismissed", launcherWarningDismissed);
+            root.addProperty("imageUploadsAllowed", imageUploadsAllowed);
             root.addProperty("activeProfileIndex", activeProfileIndex);
 
             JsonArray arr = new JsonArray();
@@ -277,7 +285,7 @@ public class ModConfig {
             return files
                     .filter(p -> {
                         String n = p.getFileName().toString().toLowerCase(Locale.ROOT);
-                        return n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg");
+                        return ImageLibrary.isImageFileName(n);
                     })
                     .map(p -> {
                         String name = p.getFileName().toString();
@@ -296,7 +304,7 @@ public class ModConfig {
      * if not found. Case-insensitive so keys resolve the same way on every OS.
      */
     public Path getImagePath(String key) {
-        for (String ext : new String[]{".png", ".jpg", ".jpeg"}) {
+        for (String ext : new String[]{".png", ".jpg", ".jpeg", ".gif"}) {
             Path p = imagesDir.resolve(key + ext);
             if (Files.exists(p)) return p;
         }
@@ -309,7 +317,7 @@ public class ModConfig {
                 String base = n.substring(0, dot);
                 String ext = n.substring(dot);
                 return base.equals(wanted)
-                        && (ext.equals(".png") || ext.equals(".jpg") || ext.equals(".jpeg"));
+                        && ImageLibrary.isImageFileName(ext);
             }).findFirst().orElse(null);
         } catch (Exception e) {
             return null;
@@ -428,6 +436,9 @@ public class ModConfig {
     public void setHideCoordinates(boolean v) { this.hideCoordinates = v; }
     public boolean isLauncherWarningDismissed() { return launcherWarningDismissed; }
     public void setLauncherWarningDismissed(boolean v) { this.launcherWarningDismissed = v; }
+    public boolean isImageUploadsAllowed() { return imageUploadsAllowed; }
+    public void setImageUploadsAllowed(boolean v) { this.imageUploadsAllowed = v; }
+    public ImageLibrary getImageLibrary() { return imageLibrary; }
     public List<RichPresenceProfile> getProfiles() { return profiles; }
     public int getActiveProfileIndex() { return activeProfileIndex; }
     public void setActiveProfileIndex(int index) { this.activeProfileIndex = index; }

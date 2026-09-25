@@ -13,13 +13,13 @@ and multiplayer.
 
 | Minecraft | Loader   | Java | Jar |
 |-----------|----------|------|-----|
-| 26.2      | NeoForge | 25   | `DiscordPresence-1.2.2+26.2-neoforge.jar` |
-| 26.2      | Fabric   | 25   | `DiscordPresence-1.2.2+26.2-fabric.jar` |
-| 26.1.x    | NeoForge | 25   | `DiscordPresence-1.2.2+26.1.2-neoforge.jar` |
-| 26.1.x    | Fabric   | 25   | `DiscordPresence-1.2.2+26.1.2-fabric.jar` |
-| 1.21.11   | NeoForge | 21   | `DiscordPresence-1.2.2+1.21.11-neoforge.jar` |
-| 1.21.1    | NeoForge | 21   | `DiscordPresence-1.2.2+1.21.1-neoforge.jar` |
-| 1.20.1 - 1.20.4 | Forge | 17  | `DiscordPresence-1.2.2+1.20.1-forge.jar` |
+| 26.2      | NeoForge | 25   | `DiscordPresence-1.3.0+26.2-neoforge.jar` |
+| 26.2      | Fabric   | 25   | `DiscordPresence-1.3.0+26.2-fabric.jar` |
+| 26.1.x    | NeoForge | 25   | `DiscordPresence-1.3.0+26.1.2-neoforge.jar` |
+| 26.1.x    | Fabric   | 25   | `DiscordPresence-1.3.0+26.1.2-fabric.jar` |
+| 1.21.11   | NeoForge | 21   | `DiscordPresence-1.3.0+1.21.11-neoforge.jar` |
+| 1.21.1    | NeoForge | 21   | `DiscordPresence-1.3.0+1.21.1-neoforge.jar` |
+| 1.20.1 - 1.20.4 | Forge | 17  | `DiscordPresence-1.3.0+1.20.1-forge.jar` |
 
 The Fabric builds need [Fabric API](https://modrinth.com/mod/fabric-api);
 [Mod Menu](https://modrinth.com/mod/modmenu) is optional but adds a Configure button.
@@ -41,8 +41,11 @@ The Fabric builds need [Fabric API](https://modrinth.com/mod/fabric-api);
   `{gamemode}`, `{difficulty}`, `{online}`, `{max_players}`, `{ping}`, `{fps}`,
   `{time}`, `{day}`, `{weather}`, `{held_item}`, `{version}`, `{world}`,
   `{server_ip}`, `{max_health}`, `{modcount}` and more, usable in any text field.
-- **Custom images**: drop PNGs into `config/discordrpc/images/` and pick them
-  in the image picker.
+- **Your own images**: press Upload Image... in the image editor (or drag a
+  PNG, JPG or GIF onto the game window) and it shows on Discord. No bot or
+  developer account needed: the mod puts the image on catbox.moe, a free image
+  host, and sends Discord the link. Pasting a link to any image online works
+  too. Everything you've used stays in a Recent row in the picker.
 - **Privacy**: one-click toggles to hide your server IP and coordinates, plus
   AFK detection with a configurable timeout.
 - **Profile sharing**: export and import profiles as JSON files.
@@ -89,10 +92,9 @@ Single targets:
 Jars land in `<target>/build/libs/`. Development clients: `./gradlew :<target>:runClient`.
 
 Each target is a standalone source tree because Minecraft's client APIs drift
-between versions. The shared files (`core/DiscordIPC`, `core/RPCManager`,
-`core/LauncherConflict`, `config/ModConfig`, `config/RichPresenceProfile`, and
-the resources) are byte-identical across all seven targets and can be copied
-verbatim. **`core/PlaceholderEngine` is NOT copy-safe**: it legitimately
+between versions. The shared code (`core/`, `config/` and the `images/` upload
+code) lives once in `common/` and every target compiles it; the resources are
+byte-identical across all seven targets and can be copied verbatim. **`core/PlaceholderEngine` is NOT copy-safe**: it legitimately
 differs per version (Identifier vs ResourceLocation, clock APIs, `{version}`
 fallback, per-loader mod count), as do `client/` and `gui/`. When editing
 shared logic, change it in `26.2-neoforge` first and mirror outward; when

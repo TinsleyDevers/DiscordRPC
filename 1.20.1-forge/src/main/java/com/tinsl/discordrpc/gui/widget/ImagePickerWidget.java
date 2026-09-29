@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import com.tinsl.discordrpc.DiscordRPCMod;
 import com.tinsl.discordrpc.images.ImageException;
 import com.tinsl.discordrpc.images.ImageLibrary;
+import com.tinsl.discordrpc.images.SkinImages;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -29,8 +30,9 @@ import java.util.concurrent.CompletionException;
 /**
  * Scrollable thumbnail grid styled like a vanilla inset list (dark panel,
  * white selection frame, classic gray scrollbar), split into sections:
- * Recent (the player's uploads and links, newest first), Your Images (files
- * in {@code config/discordrpc/images/} not uploaded yet) and Built-in (the
+ * Recent (the player's uploads and links, newest first), Your Skin (renders
+ * of whoever is logged in, see {@link SkinImages}), Your Images (files in
+ * {@code config/discordrpc/images/} not uploaded yet) and Built-in (the
  * images on the mod's Discord application).
  */
 public class ImagePickerWidget extends AbstractWidget {
@@ -74,7 +76,7 @@ public class ImagePickerWidget extends AbstractWidget {
     private static final Map<String, ImageException> REMOTE_ERRORS = new HashMap<>();
     private static final Map<String, Long> LINK_FIRST_SEEN = new HashMap<>();
 
-    private enum Source { BUNDLED, LOCAL, LIBRARY }
+    private enum Source { BUNDLED, LOCAL, LIBRARY, SKIN }
     private record Entry(String key, String label, Path localPath, Source source) {}
     private record Section(Component title, List<Entry> entries) {}
     private record Cell(Entry entry, int x, int y) {}
@@ -113,6 +115,11 @@ public class ImagePickerWidget extends AbstractWidget {
             recent.add(new Entry(e.url(), e.name(), null, Source.LIBRARY));
         }
 
+        List<Entry> skin = new ArrayList<>();
+        for (String key : SkinImages.ALL) {
+            skin.add(new Entry(key, Component.translatable(SkinImages.labelKey(key)).getString(), null, Source.SKIN));
+        }
+
         Set<String> bundledKeys = new HashSet<>();
         BundledImageRegistry.getAll().keySet().forEach(k -> bundledKeys.add(k.toLowerCase(Locale.ROOT)));
 
@@ -140,6 +147,7 @@ public class ImagePickerWidget extends AbstractWidget {
         BundledImageRegistry.getAll().forEach((key, loc) -> builtIn.add(new Entry(key, key, null, Source.BUNDLED)));
 
         if (!recent.isEmpty()) sections.add(new Section(Component.translatable("discordrpc.images.section.recent"), recent));
+        sections.add(new Section(Component.translatable("discordrpc.images.section.skin"), skin));
         if (!local.isEmpty()) sections.add(new Section(Component.translatable("discordrpc.images.section.local"), local));
         if (!builtIn.isEmpty()) sections.add(new Section(Component.translatable("discordrpc.images.section.built_in"), builtIn));
     }
@@ -222,7 +230,7 @@ public class ImagePickerWidget extends AbstractWidget {
                 ResourceLocation texLoc = switch (e.source()) {
                     case BUNDLED -> BundledImageRegistry.getAll().get(e.key());
                     case LOCAL -> LOCAL_CACHE.get(e.key());
-                    case LIBRARY -> remoteTexture(e.key());
+                    case LIBRARY, SKIN -> remoteTexture(resolveLink(e.key()));
                 };
                 if (texLoc != null) {
                     g.blit(texLoc, tx, ty, 0f, 0f, THUMB, THUMB, THUMB, THUMB);
@@ -286,6 +294,7 @@ public class ImagePickerWidget extends AbstractWidget {
         return switch (e.source()) {
             case LIBRARY -> Component.translatable("discordrpc.images.recent.tooltip", e.label());
             case LOCAL -> Component.translatable("discordrpc.images.local.tooltip", e.label());
+            case SKIN -> Component.translatable("discordrpc.images.skin.tooltip", e.label());
             case BUNDLED -> Component.literal(e.key());
         };
     }
@@ -435,16 +444,24 @@ public class ImagePickerWidget extends AbstractWidget {
         return cause instanceof ImageException ie ? ie : new ImageException("discordrpc.upload.error.link_not_image");
     }
 
+    /** Fills in placeholders like {uuid} so the preview shows what Discord will get. */
+    private static String resolveLink(String key) {
+        String k = key.trim();
+        if (!SkinImages.isTemplate(k)) return k;
+        var rpc = DiscordRPCMod.getInstance().getRpcManager();
+        return rpc != null ? rpc.resolveImageKey(k) : k;
+    }
+
     /** True while a link's preview is still downloading. */
     public static boolean isLinkLoading(String url) {
         if (url == null) return false;
-        String u = url.trim();
+        String u = resolveLink(url);
         return !REMOTE_CACHE.containsKey(u) && !REMOTE_ERRORS.containsKey(u);
     }
 
     /** Why a link's preview failed, or null. */
     public static ImageException linkError(String url) {
-        return url == null ? null : REMOTE_ERRORS.get(url.trim());
+        return url == null ? null : REMOTE_ERRORS.get(resolveLink(url));
     }
 
     /** Lets links that failed to load try again, e.g. when the settings screen reopens. */
@@ -454,7 +471,7 @@ public class ImagePickerWidget extends AbstractWidget {
 
     public static ResourceLocation findTexture(String key) {
         if (key == null || key.isEmpty()) return null;
-        if (ImageLibrary.isLink(key)) return remoteTexture(key.trim());
+        if (ImageLibrary.isLink(key)) return remoteTexture(resolveLink(key));
         Map<String, ResourceLocation> bundled = BundledImageRegistry.getAll();
         ResourceLocation loc = bundled.get(key);
         if (loc != null) return loc;

@@ -42,6 +42,14 @@ public class PlaceholderEngine {
             return p != null ? p.getName().getString() : "Steve";
         });
 
+        // The logged-in account, dashes stripped, for skin image links. Works
+        // in menus too, where there is no player entity yet.
+        resolvers.put("uuid", () -> {
+            var user = mc.getUser();
+            var id = user.getProfileId();
+            return id != null ? id.toString().replace("-", "") : user.getName();
+        });
+
         resolvers.put("server", () -> {
             if (config.isHideServerIp()) return "A Server";
             ServerData data = mc.getCurrentServer();

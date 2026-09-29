@@ -26,7 +26,7 @@ Features:
   - Per-server profiles matched by address
   - Per-dimension and per-screen overrides that inherit anything you don't change
   - 26 live placeholders: player, biome, coordinates, health, ping and more
-  - Your own images: upload a picture or paste a link, no bot needed
+  - Your own images: upload a picture, paste a link, or show your own skin
   - Privacy toggles for server IP and coordinates, plus AFK detection
   - Reconnects automatically when Discord restarts
   - Warns you when a launcher's own Discord status is hiding the mod's

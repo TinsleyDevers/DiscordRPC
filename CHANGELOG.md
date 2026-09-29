@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.0 (2026-09-29)
+
+Show your own skin on Discord.
+
+- The image picker has a new Your Skin row: pick Face or 3D Head and your presence shows your own Minecraft skin instead of Steve. It uses whichever account you're logged in with, so a shared profile or modpack config shows each player their own skin, and it follows skin changes on its own.
+- Image links can use {uuid}, which becomes your account. That makes any skin render site work, for example https://crafatar.com/avatars/{uuid}?size=512&overlay.
+- Skin images and other links with placeholders stay out of the Recent row, since they already have a home in the picker.
+
 ## 1.3.0 (2026-09-25)
 
 Your own images on Discord, no bot or developer account needed.

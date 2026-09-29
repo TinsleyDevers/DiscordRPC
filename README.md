@@ -13,13 +13,13 @@ and multiplayer.
 
 | Minecraft | Loader   | Java | Jar |
 |-----------|----------|------|-----|
-| 26.2      | NeoForge | 25   | `DiscordPresence-1.3.0+26.2-neoforge.jar` |
-| 26.2      | Fabric   | 25   | `DiscordPresence-1.3.0+26.2-fabric.jar` |
-| 26.1.x    | NeoForge | 25   | `DiscordPresence-1.3.0+26.1.2-neoforge.jar` |
-| 26.1.x    | Fabric   | 25   | `DiscordPresence-1.3.0+26.1.2-fabric.jar` |
-| 1.21.11   | NeoForge | 21   | `DiscordPresence-1.3.0+1.21.11-neoforge.jar` |
-| 1.21.1    | NeoForge | 21   | `DiscordPresence-1.3.0+1.21.1-neoforge.jar` |
-| 1.20.1 - 1.20.4 | Forge | 17  | `DiscordPresence-1.3.0+1.20.1-forge.jar` |
+| 26.2      | NeoForge | 25   | `DiscordPresence-1.4.0+26.2-neoforge.jar` |
+| 26.2      | Fabric   | 25   | `DiscordPresence-1.4.0+26.2-fabric.jar` |
+| 26.1.x    | NeoForge | 25   | `DiscordPresence-1.4.0+26.1.2-neoforge.jar` |
+| 26.1.x    | Fabric   | 25   | `DiscordPresence-1.4.0+26.1.2-fabric.jar` |
+| 1.21.11   | NeoForge | 21   | `DiscordPresence-1.4.0+1.21.11-neoforge.jar` |
+| 1.21.1    | NeoForge | 21   | `DiscordPresence-1.4.0+1.21.1-neoforge.jar` |
+| 1.20.1 - 1.20.4 | Forge | 17  | `DiscordPresence-1.4.0+1.20.1-forge.jar` |
 
 The Fabric builds need [Fabric API](https://modrinth.com/mod/fabric-api);
 [Mod Menu](https://modrinth.com/mod/modmenu) is optional but adds a Configure button.
@@ -46,6 +46,9 @@ The Fabric builds need [Fabric API](https://modrinth.com/mod/fabric-api);
   developer account needed: the mod puts the image on catbox.moe, a free image
   host, and sends Discord the link. Pasting a link to any image online works
   too. Everything you've used stays in a Recent row in the picker.
+- **Your skin**: the picker's Your Skin row puts your own Minecraft skin (face
+  or 3D head) on the card, for whoever is logged in. Links can use `{uuid}` to
+  point any skin render site at your account.
 - **Privacy**: one-click toggles to hide your server IP and coordinates, plus
   AFK detection with a configurable timeout.
 - **Profile sharing**: export and import profiles as JSON files.

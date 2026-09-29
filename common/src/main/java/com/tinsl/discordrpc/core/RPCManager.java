@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.tinsl.discordrpc.DiscordRPCMod;
 import com.tinsl.discordrpc.config.ModConfig;
 import com.tinsl.discordrpc.config.RichPresenceProfile;
+import com.tinsl.discordrpc.images.SkinImages;
 
 import java.io.IOException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -29,7 +30,8 @@ public class RPCManager {
     private final ModConfig config;
     private final DiscordIPC ipc;
     private final ScheduledExecutorService scheduler;
-    private PlaceholderEngine placeholderEngine;
+    /** Volatile: the settings screen resolves image links on the render thread too. */
+    private volatile PlaceholderEngine placeholderEngine;
 
     // ── Worker-thread-confined lifecycle state (never touched off-worker) ──
     private ScheduledFuture<?> updateTask;
@@ -331,7 +333,7 @@ public class RPCManager {
         JsonObject assets = new JsonObject();
         boolean hasAssets = false;
 
-        String largeKey = profile.getLargeImageKey();
+        String largeKey = resolveImageKey(profile.getLargeImageKey());
         if (largeKey != null && !largeKey.isEmpty()) {
             assets.addProperty("large_image", largeKey);
             hasAssets = true;
@@ -341,7 +343,7 @@ public class RPCManager {
             }
         }
 
-        String smallKey = profile.getSmallImageKey();
+        String smallKey = resolveImageKey(profile.getSmallImageKey());
         if (smallKey != null && !smallKey.isEmpty()) {
             assets.addProperty("small_image", smallKey);
             hasAssets = true;
@@ -380,6 +382,21 @@ public class RPCManager {
         }
 
         return activity;
+    }
+
+    /**
+     * Fills placeholders in an image link, so {uuid} becomes the player's
+     * account and a skin image shows their own skin. Plain asset names and
+     * links without placeholders come back unchanged.
+     */
+    public String resolveImageKey(String key) {
+        if (!SkinImages.isTemplate(key)) return key;
+        PlaceholderEngine engine = placeholderEngine;
+        if (engine == null) {
+            engine = new PlaceholderEngine(config);
+            placeholderEngine = engine;
+        }
+        return engine.resolve(key.trim());
     }
 
     private static void addButton(JsonArray buttons, String label, String url) {

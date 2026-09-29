@@ -12,6 +12,7 @@ import com.tinsl.discordrpc.gui.widget.ImagePickerWidget;
 import com.tinsl.discordrpc.images.ImageException;
 import com.tinsl.discordrpc.images.ImageFileChooser;
 import com.tinsl.discordrpc.images.ImageLibrary;
+import com.tinsl.discordrpc.images.SkinImages;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -860,7 +861,7 @@ public class ConfigScreen extends Screen {
     private int addOverrideFieldRow(int x, int y, int w, String labelKey,
                                     String currentVal, String parentVal, DiscordPreviewWidget.Zone zone) {
         boolean overridden = !eq(currentVal, parentVal);
-        String shown = isImageZone(zone) ? config.getImageLibrary().displayName(currentVal) : currentVal;
+        String shown = isImageZone(zone) ? imageName(currentVal) : currentVal;
         Component status = overridden
                 ? Component.literal(Component.translatable("discordrpc.override.state.overridden").getString()
                         + (shown == null || shown.isEmpty() ? "" : ": " + cap(shown, 16)))
@@ -1118,6 +1119,15 @@ public class ConfigScreen extends Screen {
                     rebuildContent();
                 })
                 .bounds(x + half + 4, y, w - half - 4, 20).build());
+    }
+
+    /** Short name for an image field value: "Your Face" for skin images, the library name for links. */
+    private String imageName(String key) {
+        String skin = SkinImages.labelKey(key);
+        if (skin != null) {
+            return Component.translatable("discordrpc.images.skin.name", Component.translatable(skin)).getString();
+        }
+        return config.getImageLibrary().displayName(key);
     }
 
     private static boolean isImageZone(DiscordPreviewWidget.Zone zone) {

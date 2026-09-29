@@ -145,9 +145,9 @@ public final class ImageLibrary {
         put(new Entry(e.url(), e.name(), e.file(), e.sha256(), System.currentTimeMillis()));
     }
 
-    /** Adds a pasted link to the list if it isn't there yet. */
+    /** Adds a pasted link to the list if it isn't there yet. Links with placeholders are left out. */
     public synchronized void remember(String url) {
-        if (!isLink(url) || find(url) != null) return;
+        if (!isLink(url) || SkinImages.isTemplate(url) || find(url) != null) return;
         put(new Entry(url.trim(), nameFromLink(url), null, null, System.currentTimeMillis()));
     }
 

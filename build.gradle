@@ -23,7 +23,7 @@
 
 allprojects {
     group   = 'com.tinsl.discordrpc'
-    version = '1.3.0'
+    version = '1.4.0'
 }
 
 // The ONLY place the mod version lives. Each jar gets "<version>+<target>",

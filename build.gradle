@@ -8,6 +8,8 @@
 //   26.1.2-fabric      Minecraft 26.1.2,  Fabric Loader,    Java 25
 //   26.2-neoforge      Minecraft 26.2,    NeoForge 26.2.x,  Java 25
 //   26.2-fabric        Minecraft 26.2,    Fabric Loader,    Java 25
+//   26.3-neoforge      Minecraft 26.3,    NeoForge 26.3.x,  Java 25
+//   26.3-fabric        Minecraft 26.3,    Fabric Loader,    Java 25
 //
 // common/ holds the code that is identical on every target: the config model,
 // the profile model, the Discord IPC socket and the presence manager. None of
@@ -23,7 +25,7 @@
 
 allprojects {
     group   = 'com.tinsl.discordrpc'
-    version = '1.5.0'
+    version = '1.5.1'
 }
 
 // The ONLY place the mod version lives. Each jar gets "<version>+<target>",

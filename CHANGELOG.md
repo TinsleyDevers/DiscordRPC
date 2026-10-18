@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.1 (2026-10-18)
+
+Minecraft 26.3 support on NeoForge and Fabric.
+
+- Everything from 1.5.0 works the same on 26.3. Minecraft 26.3 changed how it talks to the keyboard and to your system's windows, so the F6 key, the Open Folder buttons and the Upload Image file picker were rebuilt on the new system. Nothing changes on older versions.
+
 ## 1.5.0 (2026-10-10)
 
 Rename "Minecraft" on your Discord status.

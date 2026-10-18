@@ -1,0 +1,51 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven { url = 'https://maven.neoforged.net/releases' }
+}
+
+neoForge {
+    version = '26.3.0.92'
+    validateAccessTransformers = true
+
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+        }
+    }
+
+    mods {
+        discordrpc {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+dependencies {
+    // Shared internals, published to the local maven repo from the ZambieLib
+    // project (gradlew publishToMavenLocal there). Ships as its own mod at runtime.
+    compileOnly 'com.tinsl.zambielib:zambielib:1.2.0+26.3-neoforge'
+}
+
+base.archivesName = 'DiscordPresence'
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+// 26.3 dropped GLFW and tinyfd for SDL3, so this target brings its own
+// ImageFileChooser and leaves out the tinyfd one from common/.
+sourceSets.main.java.exclude { element ->
+    element.file.toPath().startsWith(rootProject.file('common').toPath()) &&
+            element.relativePath.pathString == 'com/tinsl/discordrpc/images/ImageFileChooser.java'
+}

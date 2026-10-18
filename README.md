@@ -13,13 +13,15 @@ and multiplayer.
 
 | Minecraft | Loader   | Java | Jar |
 |-----------|----------|------|-----|
-| 26.2      | NeoForge | 25   | `DiscordPresence-1.4.0+26.2-neoforge.jar` |
-| 26.2      | Fabric   | 25   | `DiscordPresence-1.4.0+26.2-fabric.jar` |
-| 26.1.x    | NeoForge | 25   | `DiscordPresence-1.4.0+26.1.2-neoforge.jar` |
-| 26.1.x    | Fabric   | 25   | `DiscordPresence-1.4.0+26.1.2-fabric.jar` |
-| 1.21.11   | NeoForge | 21   | `DiscordPresence-1.4.0+1.21.11-neoforge.jar` |
-| 1.21.1    | NeoForge | 21   | `DiscordPresence-1.4.0+1.21.1-neoforge.jar` |
-| 1.20.1 - 1.20.4 | Forge | 17  | `DiscordPresence-1.4.0+1.20.1-forge.jar` |
+| 26.3      | NeoForge | 25   | `DiscordPresence-1.5.1+26.3-neoforge.jar` |
+| 26.3      | Fabric   | 25   | `DiscordPresence-1.5.1+26.3-fabric.jar` |
+| 26.2      | NeoForge | 25   | `DiscordPresence-1.5.1+26.2-neoforge.jar` |
+| 26.2      | Fabric   | 25   | `DiscordPresence-1.5.1+26.2-fabric.jar` |
+| 26.1.x    | NeoForge | 25   | `DiscordPresence-1.5.1+26.1.2-neoforge.jar` |
+| 26.1.x    | Fabric   | 25   | `DiscordPresence-1.5.1+26.1.2-fabric.jar` |
+| 1.21.11   | NeoForge | 21   | `DiscordPresence-1.5.1+1.21.11-neoforge.jar` |
+| 1.21.1    | NeoForge | 21   | `DiscordPresence-1.5.1+1.21.1-neoforge.jar` |
+| 1.20.1 - 1.20.4 | Forge | 17  | `DiscordPresence-1.5.1+1.20.1-forge.jar` |
 
 The Fabric builds need [Fabric API](https://modrinth.com/mod/fabric-api);
 [Mod Menu](https://modrinth.com/mod/modmenu) is optional but adds a Configure button.
@@ -85,6 +87,8 @@ Requires Java 25 on the Gradle JVM (per-target toolchains handle the rest).
 Single targets:
 
 ```bash
+./gradlew :26.3-fabric:build
+./gradlew :26.3-neoforge:build
 ./gradlew :26.2-fabric:build
 ./gradlew :26.2-neoforge:build
 ./gradlew :26.1.2-fabric:build
@@ -98,11 +102,13 @@ Jars land in `<target>/build/libs/`. Development clients: `./gradlew :<target>:r
 
 Each target is a standalone source tree because Minecraft's client APIs drift
 between versions. The shared code (`core/`, `config/` and the `images/` upload
-code) lives once in `common/` and every target compiles it; the resources are
-byte-identical across all seven targets and can be copied verbatim. **`core/PlaceholderEngine` is NOT copy-safe**: it legitimately
+code) lives once in `common/` and every target compiles it, except that
+26.3 swaps in its own `images/ImageFileChooser` because Minecraft moved from
+GLFW to SDL3 and no longer ships tinyfd; the resources are
+byte-identical across all nine targets and can be copied verbatim. **`core/PlaceholderEngine` is NOT copy-safe**: it legitimately
 differs per version (Identifier vs ResourceLocation, clock APIs, `{version}`
 fallback, per-loader mod count), as do `client/` and `gui/`. When editing
-shared logic, change it in `26.2-neoforge` first and mirror outward; when
+shared logic, change it in `26.3-neoforge` first and mirror outward; when
 editing the per-version files, port the change by hand.
 
 The mod version is set once, in the root `build.gradle`; subprojects and the

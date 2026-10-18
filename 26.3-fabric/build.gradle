@@ -1,0 +1,51 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.17.19'
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+
+repositories {
+    mavenLocal()
+    // Loom adds the Minecraft and Fabric repositories automatically.
+    maven { url = 'https://maven.terraformersmc.com/releases' }
+}
+
+loom {
+    mods {
+        discordrpc {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+dependencies {
+    // Shared internals, published to the local maven repo from the ZambieLib
+    // project (gradlew publishToMavenLocal there). Ships as its own mod at runtime.
+    compileOnly 'com.tinsl.zambielib:zambielib:1.2.0+26.3-fabric'
+    minecraft 'com.mojang:minecraft:26.3'
+    implementation 'net.fabricmc:fabric-loader:0.19.3'
+    implementation 'net.fabricmc.fabric-api:fabric-api:0.163.0+26.3'
+
+    // Optional: adds the config button to Mod Menu's list.
+    compileOnly 'com.terraformersmc:modmenu:21.0.0'
+}
+
+base.archivesName = 'DiscordPresence'
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version
+    }
+}
+
+// 26.3 dropped GLFW and tinyfd for SDL3, so this target brings its own
+// ImageFileChooser and leaves out the tinyfd one from common/.
+sourceSets.main.java.exclude { element ->
+    element.file.toPath().startsWith(rootProject.file('common').toPath()) &&
+            element.relativePath.pathString == 'com/tinsl/discordrpc/images/ImageFileChooser.java'
+}

@@ -1,6 +1,6 @@
 {
     "name": "DiscordPresence",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "releaseType": "release",
     "changelog": "CHANGELOG.md",
     "modrinth": {
@@ -161,6 +161,52 @@
             ],
             "gameVersions": [
                 "26.2"
+            ],
+            "environment": "client",
+            "javaVersion": "Java 25",
+            "depType": "required",
+            "dependencies": {
+                "modrinth": [
+                    "fabric-api",
+                    "zambielib"
+                ],
+                "curseforge": [
+                    "fabric-api",
+                    "zambielib"
+                ]
+            },
+            "attachSources": false
+        },
+        {
+            "target": "26.3-neoforge",
+            "jar": "26.3-neoforge/build/libs/DiscordPresence-*+26.3-neoforge.jar",
+            "loaders": [
+                "neoforge"
+            ],
+            "gameVersions": [
+                "26.3"
+            ],
+            "environment": "client",
+            "javaVersion": "Java 25",
+            "depType": "required",
+            "dependencies": {
+                "modrinth": [
+                    "zambielib"
+                ],
+                "curseforge": [
+                    "zambielib"
+                ]
+            },
+            "attachSources": false
+        },
+        {
+            "target": "26.3-fabric",
+            "jar": "26.3-fabric/build/libs/DiscordPresence-*+26.3-fabric.jar",
+            "loaders": [
+                "fabric"
+            ],
+            "gameVersions": [
+                "26.3"
             ],
             "environment": "client",
             "javaVersion": "Java 25",

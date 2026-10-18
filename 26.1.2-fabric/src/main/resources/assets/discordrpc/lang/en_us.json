@@ -10,6 +10,7 @@
   "discordrpc.preview.edit_hint": "Edit %s",
   "discordrpc.preview.narration": "Discord presence preview",
 
+  "discordrpc.zone.name": "Activity Name",
   "discordrpc.zone.details": "Details",
   "discordrpc.zone.details.empty": "Add details...",
   "discordrpc.zone.state": "State",
@@ -23,6 +24,8 @@
   "discordrpc.zone.button2": "Button 2",
   "discordrpc.zone.button2.empty": "Add a second button...",
 
+  "discordrpc.editor.name": "Activity name",
+  "discordrpc.editor.name.hint": "Shown on Discord instead of \"Minecraft\", on the card and in \"Playing ...\" under your name. Use 2 letters or more. Leave it empty to keep Minecraft.",
   "discordrpc.editor.details": "Details (first line)",
   "discordrpc.editor.state": "State (second line)",
   "discordrpc.editor.image_key": "Image",

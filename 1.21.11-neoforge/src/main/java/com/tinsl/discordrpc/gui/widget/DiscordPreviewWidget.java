@@ -27,6 +27,7 @@ public class DiscordPreviewWidget extends AbstractWidget {
         NONE,
         LARGE_IMAGE,
         SMALL_IMAGE,
+        NAME,
         DETAILS,
         STATE,
         TIMESTAMP,
@@ -54,6 +55,10 @@ public class DiscordPreviewWidget extends AbstractWidget {
     private static final int C_EMPTY      = 0xFF5C5E66;
     private static final int C_ZONE_HOVER = 0x28FFFFFF;
 
+    /** What Discord shows when no activity name is set: the app's own name. */
+    public static final String DEFAULT_NAME = "Minecraft";
+
+    private String activityName = "";
     private String details = "";
     private String state = "";
     private String button1Label = "";
@@ -139,7 +144,11 @@ public class DiscordPreviewWidget extends AbstractWidget {
 
         int maxTW = (x + w - pad) - textX;
 
-        g.drawString(font, Component.literal("Minecraft").withStyle(s -> s.withBold(true)), textX, cy, C_WHITE, false);
+        // Game name. An empty one is not a ghost hint like the lines below:
+        // Discord really shows "Minecraft" then.
+        zoneRects.put(Zone.NAME, new int[]{textX - 2, cy - 1, maxTW + 4, 11});
+        String title = boldTrimToWidth(font, activityName.isEmpty() ? DEFAULT_NAME : activityName, maxTW);
+        g.drawString(font, Component.literal(title).withStyle(s -> s.withBold(true)), textX, cy, C_WHITE, false);
 
         int lineY = cy + 12;
         zoneRects.put(Zone.DETAILS, new int[]{textX - 2, lineY - 1, maxTW + 4, 11});
@@ -247,6 +256,21 @@ public class DiscordPreviewWidget extends AbstractWidget {
         return sb + ellipsis;
     }
 
+    /** Same cut as {@link #trimToWidth}, measured in the bold face the title is drawn in. */
+    private static String boldTrimToWidth(Font font, String text, int maxW) {
+        String t = text;
+        boolean cut = false;
+        while (t.length() > 1 && boldWidth(font, cut ? t + ".." : t) > maxW) {
+            t = t.substring(0, t.length() - 1);
+            cut = true;
+        }
+        return cut ? t + ".." : t;
+    }
+
+    private static int boldWidth(Font font, String text) {
+        return font.width(Component.literal(text).withStyle(s -> s.withBold(true)));
+    }
+
     // Interaction
 
     @Override
@@ -264,7 +288,7 @@ public class DiscordPreviewWidget extends AbstractWidget {
     /** Hit-test order: the small-image badge overlaps the large image's corner,
      *  so it must be checked first or it is unreachable. */
     private static final Zone[] HIT_ORDER = {
-            Zone.SMALL_IMAGE, Zone.LARGE_IMAGE, Zone.DETAILS, Zone.STATE,
+            Zone.SMALL_IMAGE, Zone.LARGE_IMAGE, Zone.NAME, Zone.DETAILS, Zone.STATE,
             Zone.TIMESTAMP, Zone.BUTTON1, Zone.BUTTON2
     };
 
@@ -281,6 +305,7 @@ public class DiscordPreviewWidget extends AbstractWidget {
 
     // State setters (called by the screen every tick)
 
+    public void setActivityName(String v) { this.activityName = v != null ? v.trim() : ""; }
     public void setDetails(String v) { this.details = v != null ? v : ""; }
     public void setState(String v) { this.state = v != null ? v : ""; }
     public void setButton1Label(String v) { this.button1Label = v != null ? v : ""; }

@@ -810,6 +810,8 @@ public class ConfigScreen extends Screen {
         addWrappedText(explain, x, y, w, COLOR_LABEL, false);
         y += wrappedHeight(explain, w) + 4;
 
+        y = addOverrideFieldRow(x, y, w, "discordrpc.zone.name",
+                editingProfile.getActivityName(), overrideParentProfile.getActivityName(), DiscordPreviewWidget.Zone.NAME);
         y = addOverrideFieldRow(x, y, w, "discordrpc.zone.details",
                 editingProfile.getDetails(), overrideParentProfile.getDetails(), DiscordPreviewWidget.Zone.DETAILS);
         y = addOverrideFieldRow(x, y, w, "discordrpc.zone.state",
@@ -879,6 +881,7 @@ public class ConfigScreen extends Screen {
     private static int countOverriddenFields(RichPresenceProfile.Override ov) {
         if (ov == null) return 0;
         int n = 0;
+        if (ov.activityName != null) n++;
         if (ov.details != null) n++;
         if (ov.state != null) n++;
         if (ov.timestampMode != null) n++;
@@ -896,6 +899,7 @@ public class ConfigScreen extends Screen {
 
     private static RichPresenceProfile.Override diffAgainstBase(RichPresenceProfile base, RichPresenceProfile edited) {
         RichPresenceProfile.Override ov = new RichPresenceProfile.Override();
+        if (!eq(base.getActivityName(), edited.getActivityName())) ov.activityName = edited.getActivityName();
         if (!eq(base.getDetails(), edited.getDetails())) ov.details = edited.getDetails();
         if (!eq(base.getState(), edited.getState())) ov.state = edited.getState();
         if (base.getTimestampMode() != edited.getTimestampMode()) ov.timestampMode = edited.getTimestampMode();
@@ -967,6 +971,7 @@ public class ConfigScreen extends Screen {
         y += 26;
 
         switch (currentZone) {
+            case NAME -> buildNameEditor(x, y, w);
             case DETAILS, STATE -> buildTextEditor(x, y, w);
             case LARGE_IMAGE -> buildImageEditor(x, y, w, true);
             case SMALL_IMAGE -> buildImageEditor(x, y, w, false);
@@ -974,6 +979,31 @@ public class ConfigScreen extends Screen {
             case BUTTON1 -> buildButtonEditor(x, y, w, true);
             case BUTTON2 -> buildButtonEditor(x, y, w, false);
             default -> {}
+        }
+    }
+
+    private void buildNameEditor(int x, int y, int w) {
+        y = addFieldLabel(x, y, "discordrpc.editor.name");
+        EditBox name = new EditBox(font, x, y, w, 20, Component.translatable("discordrpc.editor.name"));
+        name.setHint(Component.literal(DiscordPreviewWidget.DEFAULT_NAME));
+        name.setMaxLength(128);
+        name.setValue(editingProfile.getActivityName());
+        name.setResponder(s -> { editingProfile.setActivityName(s); updatePreview(); });
+        addDynamic(name);
+        y += 24;
+
+        Component hint = Component.translatable("discordrpc.editor.name.hint");
+        addWrappedText(hint, x, y, w, COLOR_HINT, false);
+        y += wrappedHeight(hint, w) + 4;
+
+        if (editingOverrideKey != null) {
+            y = addInheritResetRow(x, y, w, () ->
+                    editingProfile.setActivityName(overrideParentProfile.getActivityName()));
+        }
+
+        if (panelBottom - y > 40) {
+            y = addSectionHeader(y + 2, "discordrpc.section.placeholders");
+            variablesY = y;
         }
     }
 
@@ -1633,6 +1663,7 @@ public class ConfigScreen extends Screen {
 
     private void updatePreview() {
         if (preview == null || editingProfile == null) return;
+        preview.setActivityName(editingProfile.getActivityName());
         preview.setDetails(editingProfile.getDetails());
         preview.setState(editingProfile.getState());
         preview.setHasLargeImage(!editingProfile.getLargeImageKey().isEmpty());

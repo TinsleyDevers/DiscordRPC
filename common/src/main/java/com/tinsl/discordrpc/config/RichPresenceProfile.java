@@ -8,7 +8,7 @@ import java.util.Map;
 
 /**
  * A single Rich Presence profile - describes one variant of how the player's
- * presence card looks (details, state, images, buttons, timestamp).
+ * presence card looks (activity name, details, state, images, buttons, timestamp).
  *
  * Each profile can additionally carry:
  * - <b>Dimension overrides</b> - used by Singleplayer / Multiplayer / Specific-Server
@@ -88,6 +88,8 @@ public class RichPresenceProfile {
     private String contextFilter;
     private int priority;
 
+    /** Replaces the game name on the card. Empty = the app's own name, "Minecraft". */
+    private String activityName;
     private String details;
     private String state;
     private TimestampMode timestampMode;
@@ -113,6 +115,7 @@ public class RichPresenceProfile {
         this.contextType = ContextType.ALWAYS;
         this.contextFilter = "";
         this.priority = 0;
+        this.activityName = "";
         this.details = "Playing Minecraft";
         this.state = "";
         this.timestampMode = TimestampMode.ELAPSED;
@@ -145,6 +148,7 @@ public class RichPresenceProfile {
         c.contextType   = this.contextType;
         c.contextFilter = this.contextFilter;
         c.priority      = this.priority;
+        c.activityName  = this.activityName;
         c.details       = this.details;
         c.state         = this.state;
         c.timestampMode = this.timestampMode;
@@ -166,12 +170,13 @@ public class RichPresenceProfile {
     }
 
     /**
-     * Copies only the visual presence fields (text, images, buttons, timestamp,
+     * Copies only the visual presence fields (name, text, images, buttons, timestamp,
      * party-size flag) from {@code src} into this profile. Management fields
      * (name, contextType, priority, contextFilter, overrides) are intentionally
      * left untouched.
      */
     public void applyPresenceFrom(RichPresenceProfile src) {
+        this.activityName  = src.activityName;
         this.details       = src.details;
         this.state         = src.state;
         this.timestampMode = src.timestampMode;
@@ -198,6 +203,7 @@ public class RichPresenceProfile {
         r.contextType   = this.contextType;
         r.contextFilter = this.contextFilter;
         r.priority      = this.priority;
+        r.activityName  = override.activityName  != null ? override.activityName  : this.activityName;
         r.details       = override.details       != null ? override.details       : this.details;
         r.state         = override.state         != null ? override.state         : this.state;
         r.timestampMode = override.timestampMode != null ? override.timestampMode : this.timestampMode;
@@ -223,6 +229,7 @@ public class RichPresenceProfile {
         json.addProperty("contextType", contextType.name());
         json.addProperty("contextFilter", contextFilter);
         json.addProperty("priority", priority);
+        json.addProperty("activityName", activityName);
         json.addProperty("details", details);
         json.addProperty("state", state);
         json.addProperty("timestampMode", timestampMode.name());
@@ -269,6 +276,7 @@ public class RichPresenceProfile {
         if (json.has("priority") && json.get("priority").isJsonPrimitive()) {
             try { p.priority = json.get("priority").getAsInt(); } catch (Exception ignored) {}
         }
+        p.activityName = str(json, "activityName", p.activityName, 128);
         p.details = str(json, "details", p.details, 256);
         p.state = str(json, "state", p.state, 256);
         if (json.has("timestampMode") && json.get("timestampMode").isJsonPrimitive()) {
@@ -399,6 +407,8 @@ public class RichPresenceProfile {
     public void setContextFilter(String f) { this.contextFilter = f; }
     public int getPriority() { return priority; }
     public void setPriority(int p) { this.priority = p; }
+    public String getActivityName() { return activityName; }
+    public void setActivityName(String n) { this.activityName = n != null ? n : ""; }
     public String getDetails() { return details; }
     public void setDetails(String d) { this.details = d; }
     public String getState() { return state; }
@@ -439,6 +449,7 @@ public class RichPresenceProfile {
      * can null out a parent's button or state line via an override.
      */
     public static class Override {
+        public String activityName;
         public String details;
         public String state;
         public TimestampMode timestampMode;
@@ -454,6 +465,7 @@ public class RichPresenceProfile {
 
         public Override copy() {
             Override c = new Override();
+            c.activityName = this.activityName;
             c.details = this.details;
             c.state = this.state;
             c.timestampMode = this.timestampMode;
@@ -471,7 +483,8 @@ public class RichPresenceProfile {
 
         /** True when no field is set - UI uses this to show "Empty (inherits parent)". */
         public boolean isEmpty() {
-            return details == null && state == null
+            return activityName == null
+                && details == null && state == null
                 && timestampMode == null && showPartySize == null
                 && largeImageKey == null && largeImageText == null
                 && smallImageKey == null && smallImageText == null
@@ -481,6 +494,7 @@ public class RichPresenceProfile {
 
         public JsonObject toJson() {
             JsonObject o = new JsonObject();
+            if (activityName != null)   o.addProperty("activityName", activityName);
             if (details != null)        o.addProperty("details", details);
             if (state != null)          o.addProperty("state", state);
             if (timestampMode != null)  o.addProperty("timestampMode", timestampMode.name());
@@ -498,6 +512,7 @@ public class RichPresenceProfile {
 
         public static Override fromJson(JsonObject o) {
             Override ov = new Override();
+            ov.activityName = str(o, "activityName", null, 128);
             ov.details = str(o, "details", null, 256);
             ov.state = str(o, "state", null, 256);
             if (o.has("timestampMode") && o.get("timestampMode").isJsonPrimitive()) {

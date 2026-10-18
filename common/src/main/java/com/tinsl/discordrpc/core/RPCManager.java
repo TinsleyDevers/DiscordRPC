@@ -309,6 +309,13 @@ public class RPCManager {
     private JsonObject buildActivity(RichPresenceProfile profile) {
         JsonObject activity = new JsonObject();
 
+        // Shown in place of the app's name ("Minecraft"). Left out when
+        // empty, and Discord falls back to the app name on its own.
+        String name = placeholderEngine.resolve(profile.getActivityName()).trim();
+        if (name.length() >= 2) {
+            activity.addProperty("name", truncate(name, 128));
+        }
+
         // Discord requires details/state to be 2..128 chars when present.
         String details = placeholderEngine.resolve(profile.getDetails());
         if (details.length() >= 2) {

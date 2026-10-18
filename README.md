@@ -29,6 +29,8 @@ The Fabric builds need [Fabric API](https://modrinth.com/mod/fabric-api);
 - **Click-to-edit preview**: the settings screen shows the actual Discord card;
   click the details line, an image, a button or the timestamp to edit that part,
   and watch the card update as you type.
+- **Rename the game**: click "Minecraft" on the card and type anything else,
+  such as your modpack's name. Discord shows it as what you're playing.
 - **Context profiles**: separate presence for the Main Menu, Singleplayer and
   Multiplayer, switched automatically.
 - **Per-server profiles**: a custom look for any server, matched by address

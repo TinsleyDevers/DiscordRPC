@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.0 (2026-10-10)
+
+Rename "Minecraft" on your Discord status.
+
+- Click the game name at the top of the preview card and type your own. Discord shows it in place of "Minecraft", on the card and in the "Playing ..." line under your name. Leave the field empty to keep Minecraft.
+- It is set per profile like everything else, so the Main Menu, Singleplayer, Multiplayer and each server profile can have their own name. Screen and dimension overrides can change it too, or inherit it.
+- Placeholders work in it, for example "Minecraft {version}" or "{server}".
+- Needs a current Discord desktop app. An older one ignores the name and keeps showing Minecraft; nothing else changes.
+
 ## 1.4.0 (2026-09-29)
 
 Show your own skin on Discord.

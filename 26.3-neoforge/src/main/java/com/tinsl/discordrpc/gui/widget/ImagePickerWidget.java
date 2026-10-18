@@ -1,5 +1,6 @@
 package com.tinsl.discordrpc.gui.widget;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.tinsl.discordrpc.DiscordRPCMod;
 import com.tinsl.discordrpc.images.ImageException;
@@ -321,12 +322,12 @@ public class ImagePickerWidget extends AbstractWidget {
         Cell hit = cellAt(mx, my);
         if (hit == null) return false;
         Entry e = hit.entry();
-        if (button == 1) {
+        if (button == InputConstants.MOUSE_BUTTON_RIGHT) {
             if (e.source() != Source.LIBRARY) return false;
             listener.onForget(e.key());
             return true;
         }
-        if (button != 0) return false;
+        if (button != InputConstants.MOUSE_BUTTON_LEFT) return false;
         if (e.source() == Source.LOCAL) {
             listener.onUploadFile(e.localPath());
         } else {

@@ -1,5 +1,6 @@
 package com.tinsl.discordrpc.gui.widget;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -275,7 +276,7 @@ public class DiscordPreviewWidget extends AbstractWidget {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (!active || !visible || event.button() != 0) return false;
+        if (!active || !visible || event.button() != InputConstants.MOUSE_BUTTON_LEFT) return false;
         Zone zone = getZoneAt(event.x(), event.y());
         if (zone != Zone.NONE) {
             selectedZone = zone;

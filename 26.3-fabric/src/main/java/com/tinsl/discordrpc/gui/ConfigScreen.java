@@ -30,6 +30,7 @@ import net.minecraft.client.gui.layouts.Layout;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
@@ -153,6 +154,14 @@ public class ConfigScreen extends Screen {
 
     // Layout
     private boolean compact;
+    /** Panel scroll in pixels, and how far it can go for the panel on screen now. */
+    private int scroll, scrollMax;
+    /** Which panel the scroll belongs to; opening a different one starts at the top. */
+    private String scrollView = "";
+    /** Unscrolled Y of every widget that moves with the panel. */
+    private final Map<AbstractWidget, Integer> scrolledY = new java.util.IdentityHashMap<>();
+    /** Bumped on every rebuild, so a click that rebuilt the panel leaves the new one alone. */
+    private int layoutGen;
     private int contentTop, contentBottom;
     private int previewX, previewY, previewW;
     private int panelX, panelY, panelW, panelBottom;
@@ -260,7 +269,7 @@ public class ConfigScreen extends Screen {
         suppressTabCallback = false;
 
         preview = new DiscordPreviewWidget(previewX, previewY, previewW, this::onZoneClicked);
-        addRenderableWidget(preview);
+        addWidget(preview);
 
         int btnW = Math.min(150, (width - 24) / 2);
         int gap = 8;
@@ -308,9 +317,9 @@ public class ConfigScreen extends Screen {
     private boolean previewVisible() {
         if (currentTab == TAB_SETTINGS) return false;
         if (!compact) return true;
-        // Small window: the card yields to whichever editor is open.
-        return currentZone == DiscordPreviewWidget.Zone.NONE
-                && (contentBottom - contentTop) >= 240;
+        // Small window: the card yields to whichever editor is open. Short windows
+        // keep it too, the panel below it scrolls.
+        return currentZone == DiscordPreviewWidget.Zone.NONE;
     }
 
     private void applyPreviewVisibility() {
@@ -401,6 +410,44 @@ public class ConfigScreen extends Screen {
     }
 
     private void rebuildContent() {
+        buildContent();
+        finishLayout();
+    }
+
+    /** Measures the panel that was just built and puts it at the current scroll. */
+    private void finishLayout() {
+        String view = currentTab + "/" + currentZone + "/" + addOverrideMode + "/" + editingOverrideKey
+                + "/" + (editingServerProfile != null);
+        if (!view.equals(scrollView)) {
+            scrollView = view;
+            scroll = 0;
+        }
+        layoutGen++;
+        scrolledY.clear();
+        int end = contentTop;
+        // In a small window the card sits on top of the panel and scrolls with it.
+        if (compact && preview != null && preview.visible) {
+            scrolledY.put(preview, preview.getY());
+            end = preview.getY() + preview.getHeight() + 18;
+        }
+        for (AbstractWidget w : dynamicWidgets) {
+            scrolledY.put(w, w.getY());
+            end = Math.max(end, w.getY() + w.getHeight());
+        }
+        for (TextLine line : textLines) end = Math.max(end, line.y() + 10);
+        if (imageStatusY >= 0) end = Math.max(end, imageStatusY + 10);
+        scrollMax = Math.max(0, end + 6 - contentBottom);
+        applyScroll();
+    }
+
+    private void applyScroll() {
+        scroll = Math.max(0, Math.min(scroll, scrollMax));
+        for (Map.Entry<AbstractWidget, Integer> e : scrolledY.entrySet()) {
+            e.getKey().setY(e.getValue() - scroll);
+        }
+    }
+
+    private void buildContent() {
         // Keep the picker's scroll while the same image is being edited.
         imagePickerScroll = imagePicker != null && imagePickerZone == currentZone ? imagePicker.getScroll() : 0;
         clearDynamic();
@@ -456,7 +503,7 @@ public class ConfigScreen extends Screen {
 
         addDynamic(Button.builder(Component.translatable("discordrpc.button.restore_defaults"),
                         b -> restoreCurrentTabDefaults())
-                .bounds(x, panelBottom - 20, w, 20)
+                .bounds(x, Math.max(y, panelBottom - 20), w, 20)
                 .tooltip(Tooltip.create(Component.translatable("discordrpc.button.restore_defaults.tooltip")))
                 .build());
     }
@@ -466,7 +513,6 @@ public class ConfigScreen extends Screen {
         for (int i = 0; i < serverProfiles.size(); i++) {
             final RichPresenceProfile sp = serverProfiles.get(i);
             final int idx = i;
-            if (y + 20 > panelBottom - 96) break;
 
             String filter = sp.getContextFilter();
             String label = sp.getName() + (filter == null || filter.isEmpty() ? "" : " (" + cap(filter, 18) + ")");
@@ -668,8 +714,6 @@ public class ConfigScreen extends Screen {
 
         for (Map.Entry<String, RichPresenceProfile.Override> entry : overrides.entrySet()) {
             final String key = entry.getKey();
-            if (y + 20 > panelBottom - 72) break;
-
             int fieldCount = countOverriddenFields(entry.getValue());
             Component label = Component.literal(cap(screenMode ? screenKeyLabel(key) : prettyDimensionId(key), 20))
                     .append(Component.literal(fieldCount == 0
@@ -712,7 +756,6 @@ public class ConfigScreen extends Screen {
         if (screenMode) {
             for (ScreenContext sc : ScreenContext.values()) {
                 if (existing.containsKey(sc.key)) continue;
-                if (y + 20 > panelBottom - 48) break;
                 final String key = sc.key;
                 addDynamic(Button.builder(Component.translatable(sc.translationKey()),
                                 b -> { createOverride(key, true); addOverrideMode = false; startEditingOverride(key, true); })
@@ -722,7 +765,6 @@ public class ConfigScreen extends Screen {
         } else {
             for (String[] dim : COMMON_DIMENSIONS) {
                 if (existing.containsKey(dim[0])) continue;
-                if (y + 20 > panelBottom - 72) break;
                 final String id = dim[0];
                 addDynamic(Button.builder(Component.literal(dim[1]),
                                 b -> { createOverride(id, false); addOverrideMode = false; startEditingOverride(id, false); })
@@ -1101,36 +1143,35 @@ public class ConfigScreen extends Screen {
         imageStatusW = w;
         y += 13;
 
-        int pickerH = panelBottom - y;
-        if (pickerH >= 48) {
-            ImageLibrary library = config.getImageLibrary();
-            imagePicker = new ImagePickerWidget(x, y, w, pickerH, config.getImagesDir(), library, !isLarge,
-                    new ImagePickerWidget.Listener() {
-                        @Override
-                        public void onPick(String key) {
-                            keyBox.setValue(key);
-                            library.markUsed(key);
-                        }
+        // Short windows still get a usable picker, the panel scrolls down to it.
+        int pickerH = Math.max(panelBottom - y, 100);
+        ImageLibrary library = config.getImageLibrary();
+        imagePicker = new ImagePickerWidget(x, y, w, pickerH, config.getImagesDir(), library, !isLarge,
+                new ImagePickerWidget.Listener() {
+                    @Override
+                    public void onPick(String key) {
+                        keyBox.setValue(key);
+                        library.markUsed(key);
+                    }
 
-                        @Override
-                        public void onUploadFile(Path file) {
-                            requestUpload(file, isLarge);
-                        }
+                    @Override
+                    public void onUploadFile(Path file) {
+                        requestUpload(file, isLarge);
+                    }
 
-                        @Override
-                        public void onForget(String url) {
-                            String name = library.displayName(url);
-                            library.remove(url);
-                            flashStatus(Component.translatable("discordrpc.upload.forgotten", name));
-                            rebuildContent();
-                        }
-                    });
-            imagePicker.setSelectedKey(currentKey);
-            imagePicker.setBusyFile(uploadingFile);
-            imagePicker.setScroll(imagePickerScroll);
-            imagePickerZone = currentZone;
-            addDynamic(imagePicker);
-        }
+                    @Override
+                    public void onForget(String url) {
+                        String name = library.displayName(url);
+                        library.remove(url);
+                        flashStatus(Component.translatable("discordrpc.upload.forgotten", name));
+                        rebuildContent();
+                    }
+                });
+        imagePicker.setSelectedKey(currentKey);
+        imagePicker.setBusyFile(uploadingFile);
+        imagePicker.setScroll(imagePickerScroll);
+        imagePickerZone = currentZone;
+        addDynamic(imagePicker);
     }
 
     /** The one-time question before the first upload: images go to a public host. */
@@ -1272,7 +1313,7 @@ public class ConfigScreen extends Screen {
             msg = Component.translatable("discordrpc.upload.warn_unknown");
             color = COLOR_GOLD;
         }
-        g.text(font, fitWidth(msg.getString(), imageStatusW), imageStatusX, imageStatusY, color, false);
+        g.text(font, fitWidth(msg.getString(), imageStatusW), imageStatusX, imageStatusY - scroll, color, false);
     }
 
     /** Cuts a line down to {@code maxW} pixels, ending in ".." when it had to cut. */
@@ -1405,10 +1446,16 @@ public class ConfigScreen extends Screen {
     private void buildSettingsPanel() {
         int colW = 150;
         int gap = 10;
-        boolean twoCols = width >= colW * 2 + gap + 16;
+        // Minecraft never scales a window below 320 wide, so this is two columns in practice.
+        boolean twoCols = width >= colW * 2 + gap + 8;
         int blockW = twoCols ? colW * 2 + gap : colW;
         int x = (width - blockW) / 2;
-        int y = contentTop + 12;
+        boolean conflict = LauncherConflict.current() != LauncherConflict.Launcher.NONE
+                && !config.isLauncherWarningDismissed();
+        // Short windows (854x480 at GUI scale 2 is only 240 tall) get tighter rows so the
+        // last one stays clear of Done and Cancel.
+        boolean tight = contentBottom - contentTop < (conflict ? 240 : 200);
+        int y = contentTop + (tight ? 6 : 12);
 
         // Connection line + reconnect button when it is down.
         var rpc = DiscordRPCMod.getInstance().getRpcManager();
@@ -1435,10 +1482,10 @@ public class ConfigScreen extends Screen {
                 flashStatus(Component.translatable("discordrpc.status.reconnecting"));
             }).bounds(x + blockW - 80, y - 3, 80, 20).build());
         }
-        y += 20;
+        y += tight ? 18 : 20;
 
         // Launcher conflict notice, when one applies.
-        if (LauncherConflict.current() != LauncherConflict.Launcher.NONE && !config.isLauncherWarningDismissed()) {
+        if (conflict) {
             String launcher = LauncherConflict.current().displayName();
             Component title = Component.translatable("discordrpc.conflict.title", launcher);
             Component body = Component.translatable("discordrpc.conflict.body", launcher);
@@ -1459,7 +1506,7 @@ public class ConfigScreen extends Screen {
 
         int leftX = x;
         int rightX = twoCols ? x + colW + gap : x;
-        int rowStep = 24;
+        int rowStep = tight ? 22 : 24;
 
         record Slot(int x, int y) {}
         List<Slot> slots = new ArrayList<>();
@@ -1501,7 +1548,7 @@ public class ConfigScreen extends Screen {
                 "discordrpc.settings.afk_timeout", 30, 900, config.getAfkTimeout(),
                 config::setAfkTimeout));
 
-        y += (twoCols ? 4 : 8) * rowStep + 8;
+        y += (twoCols ? 4 : 8) * rowStep + (tight ? 2 : 8);
 
         y = addSectionHeaderAt(x, y, blockW, "discordrpc.section.profile_sharing");
         int half = (blockW - 8) / 2;
@@ -1515,7 +1562,7 @@ public class ConfigScreen extends Screen {
                 .bounds(x + half + 8, y, blockW - half - 8, 20)
                 .tooltip(Tooltip.create(Component.translatable("discordrpc.button.import_profiles.tooltip")))
                 .build());
-        y += 24;
+        y += rowStep;
         addDynamic(Button.builder(Component.translatable("discordrpc.button.open_profiles_folder"),
                         b -> Blaze3D.openPath(config.getProfilesDir()))
                 .bounds(x, y, half, 20)
@@ -1597,8 +1644,16 @@ public class ConfigScreen extends Screen {
 
         super.extractRenderState(g, mx, my, pt);
 
+        // The panel lives in the strip between the tabs and the footer and scrolls
+        // there; the mouse only reaches it inside that strip.
+        g.enableScissor(0, contentTop, width, contentBottom);
+        boolean mouseInView = inView(mx, my);
+        int vx = mouseInView ? mx : -1, vy = mouseInView ? my : -1;
+        if (preview != null && preview.visible) preview.extractRenderState(g, vx, vy, pt);
+        for (AbstractWidget w : dynamicWidgets) w.extractRenderState(g, vx, vy, pt);
+
         for (TextLine line : textLines) {
-            g.text(font, line.text(), line.x(), line.y(), line.color(), line.shadow());
+            g.text(font, line.text(), line.x(), line.y() - scroll, line.color(), line.shadow());
         }
 
         if (variablesY >= 0) {
@@ -1612,6 +1667,8 @@ public class ConfigScreen extends Screen {
         if (previewVisible() && preview != null) {
             renderPreviewHint(g);
         }
+        g.disableScissor();
+        renderScrollbar(g);
 
         long now = System.currentTimeMillis();
         if (statusMessage != null && statusUntilMs > now) {
@@ -1656,14 +1713,14 @@ public class ConfigScreen extends Screen {
             int colX = (i % 2 == 0) ? panelX : panelX + halfW + 8;
             int rowY = startY + (i / 2) * rowH;
             if (rowY + 9 > panelBottom - 24) break;
-            g.text(font, VARIABLES[i][0], colX, rowY, COLOR_VAR, false);
+            g.text(font, VARIABLES[i][0], colX, rowY - scroll, COLOR_VAR, false);
             int keyW = font.width(VARIABLES[i][0]);
             String desc = " " + VARIABLES[i][1];
             int maxW = halfW - keyW - 2;
             while (font.width(desc) > maxW && desc.length() > 2) {
                 desc = desc.substring(0, desc.length() - 1);
             }
-            g.text(font, desc, colX + keyW, rowY, COLOR_HINT, false);
+            g.text(font, desc, colX + keyW, rowY - scroll, COLOR_HINT, false);
         }
     }
 
@@ -1696,6 +1753,66 @@ public class ConfigScreen extends Screen {
     public void tick() {
         super.tick();
         updatePreview();
+    }
+
+    // Scrolling
+
+    /** True inside the strip between the tab bar and the footer, where the panel scrolls. */
+    private boolean inView(double mx, double my) {
+        return my >= contentTop && my < contentBottom;
+    }
+
+    private boolean scrollPanel(double amount) {
+        if (scrollMax <= 0 || amount == 0) return false;
+        scroll -= (int) Math.round(amount * 20);
+        applyScroll();
+        return true;
+    }
+
+    /** A click on the tabs or the footer must not reach panel rows scrolled in behind them. */
+    private boolean clickOutsideView(java.util.function.BooleanSupplier click) {
+        List<AbstractWidget> hidden = new ArrayList<>();
+        for (AbstractWidget w : scrolledY.keySet()) {
+            if (w.visible) {
+                w.visible = false;
+                hidden.add(w);
+            }
+        }
+        int gen = layoutGen;
+        try {
+            return click.getAsBoolean();
+        } finally {
+            // A tab switch rebuilds the panel mid click and decides visibility itself.
+            if (layoutGen == gen) {
+                for (AbstractWidget w : hidden) w.visible = true;
+            }
+        }
+    }
+
+    @Override
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (!inView(event.x(), event.y())) return clickOutsideView(() -> super.mouseClicked(event, doubleClick));
+        return super.mouseClicked(event, doubleClick);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mx, double my, double scrollX, double scrollY) {
+        if (inView(mx, my) && super.mouseScrolled(mx, my, scrollX, scrollY)) return true;
+        return scrollPanel(scrollY);
+    }
+
+    /** Vanilla list style scrollbar in the right gutter, only when the panel overflows. */
+    private void renderScrollbar(GuiGraphicsExtractor g) {
+        if (scrollMax <= 0) return;
+        int top = contentTop + 2, bottom = contentBottom - 2;
+        int x0 = width - 6, x1 = width - 2;
+        int track = bottom - top;
+        int view = contentBottom - contentTop;
+        int thumb = Math.max(16, track * view / (view + scrollMax));
+        int thumbY = top + (track - thumb) * scroll / scrollMax;
+        g.fill(x0, top, x1, bottom, 0xFF000000);
+        g.fill(x0, thumbY, x1, thumbY + thumb, 0xFF808080);
+        g.fill(x0, thumbY, x1 - 1, thumbY + thumb - 1, 0xFFC0C0C0);
     }
 
     // Save / close
@@ -1810,7 +1927,7 @@ public class ConfigScreen extends Screen {
 
     private <T extends AbstractWidget> T addDynamic(T widget) {
         dynamicWidgets.add(widget);
-        return addRenderableWidget(widget);
+        return addWidget(widget);
     }
 
     private void clearDynamic() {

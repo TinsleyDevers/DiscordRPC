@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.5.2 (2026-10-20)
+
+The editor works in small windows now.
+
+- The editor scrolls. Use the mouse wheel anywhere between the tabs and the Done button when a page is taller than your window. Before this, long pages ran under Done and Cancel or got cut off.
+- In a small window (or at a big GUI scale) the preview card used to disappear, leaving nothing to click. It stays on screen now, with the lists scrolling below it.
+- The server profile list shows all your servers. It used to stop at two or three on a small window, so new ones looked like they were never made.
+- The same goes for screen and dimension overrides and the Add Override pickers: everything is listed, nothing is dropped for lack of room.
+- The Large and Small Image editors always show the image picker. On a short window it used to be left out.
+- The Settings tab fits in an 854x480 window without its last row touching Done and Cancel.
+- On 26.3, left clicks on the preview card and in the image picker work again.
+
 ## 1.5.1 (2026-10-18)
 
 Minecraft 26.3 support on NeoForge and Fabric.

@@ -1893,8 +1893,19 @@ public class ConfigScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double scrollX, double scrollY) {
-        if (inView(mx, my) && super.mouseScrolled(mx, my, scrollX, scrollY)) return true;
+        if (inView(mx, my) && !overOptionButton(mx, my) && super.mouseScrolled(mx, my, scrollX, scrollY)) return true;
         return scrollPanel(scrollY);
+    }
+
+    /**
+     * Over an On/Off or other option button the wheel scrolls the panel. Vanilla
+     * would cycle the option instead, which flips settings while scrolling.
+     */
+    private boolean overOptionButton(double mx, double my) {
+        for (AbstractWidget w : dynamicWidgets) {
+            if (w instanceof CycleButton<?> && w.visible && w.isMouseOver(mx, my)) return true;
+        }
+        return false;
     }
 
     /** Vanilla list style scrollbar in the right gutter, only when the panel overflows. */

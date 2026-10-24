@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.6.0 (2026-10-23)
+## 1.6.0 (2026-10-24)
 
 Pick which Discord account shows your status.
 
@@ -10,6 +10,7 @@ Pick which Discord account shows your status.
 - If the picked account's Discord is closed, the status line says it's waiting for it and the mod connects as soon as it opens. It won't fall back to your other account. Pick Auto to go back to using whichever Discord is found first.
 - The status line names the app, for example "Connected to Discord PTB as zambied".
 - The Settings tab updates on its own when Discord connects or disconnects and when a Discord app opens or closes. Before, it only changed when you reopened the screen.
+- The mouse wheel no longer flips settings. Scrolling over an On/Off button or the timestamp option used to change it; now it scrolls the page like everywhere else.
 
 ## 1.5.2 (2026-10-20)
 

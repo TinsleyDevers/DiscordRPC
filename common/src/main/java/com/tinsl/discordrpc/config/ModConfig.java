@@ -54,6 +54,13 @@ public class ModConfig {
     private boolean launcherWarningDismissed = false;
     /** The player agreed to have their images uploaded to the image host. */
     private boolean imageUploadsAllowed = false;
+    /**
+     * Discord account to show the presence on when several Discord apps are
+     * open (Discord, PTB, Canary). Empty means Auto: the first one found. The
+     * name is only kept to label the choice while that account is offline.
+     */
+    private String discordAccountId = "";
+    private String discordAccountName = "";
 
     /** Copy-on-write: the GUI mutates on the render thread while the RPC worker iterates. */
     private final List<RichPresenceProfile> profiles = new CopyOnWriteArrayList<>();
@@ -158,6 +165,8 @@ public class ModConfig {
                 hideCoordinates = readBool(root, "hideCoordinates", hideCoordinates);
                 launcherWarningDismissed = readBool(root, "launcherWarningDismissed", launcherWarningDismissed);
                 imageUploadsAllowed = readBool(root, "imageUploadsAllowed", imageUploadsAllowed);
+                discordAccountId = readString(root, "discordAccountId", discordAccountId);
+                discordAccountName = readString(root, "discordAccountName", discordAccountName);
                 activeProfileIndex = readInt(root, "activeProfileIndex", activeProfileIndex);
 
                 profiles.clear();
@@ -183,6 +192,14 @@ public class ModConfig {
     private static boolean readBool(JsonObject root, String key, boolean def) {
         try {
             return root.has(key) && root.get(key).isJsonPrimitive() ? root.get(key).getAsBoolean() : def;
+        } catch (Exception e) {
+            return def;
+        }
+    }
+
+    private static String readString(JsonObject root, String key, String def) {
+        try {
+            return root.has(key) && root.get(key).isJsonPrimitive() ? root.get(key).getAsString().trim() : def;
         } catch (Exception e) {
             return def;
         }
@@ -237,6 +254,8 @@ public class ModConfig {
             root.addProperty("hideCoordinates", hideCoordinates);
             root.addProperty("launcherWarningDismissed", launcherWarningDismissed);
             root.addProperty("imageUploadsAllowed", imageUploadsAllowed);
+            root.addProperty("discordAccountId", discordAccountId);
+            root.addProperty("discordAccountName", discordAccountName);
             root.addProperty("activeProfileIndex", activeProfileIndex);
 
             JsonArray arr = new JsonArray();
@@ -266,6 +285,8 @@ public class ModConfig {
         afkTimeout = 300;
         hideServerIp = false;
         hideCoordinates = false;
+        discordAccountId = "";
+        discordAccountName = "";
         activeProfileIndex = 0;
         createDefaults();
     }
@@ -438,6 +459,13 @@ public class ModConfig {
     public void setLauncherWarningDismissed(boolean v) { this.launcherWarningDismissed = v; }
     public boolean isImageUploadsAllowed() { return imageUploadsAllowed; }
     public void setImageUploadsAllowed(boolean v) { this.imageUploadsAllowed = v; }
+    public String getDiscordAccountId() { return discordAccountId; }
+    public String getDiscordAccountName() { return discordAccountName; }
+    /** Empty id means Auto. */
+    public void setDiscordAccount(String id, String name) {
+        this.discordAccountId = id == null ? "" : id.trim();
+        this.discordAccountName = this.discordAccountId.isEmpty() || name == null ? "" : name.trim();
+    }
     public ImageLibrary getImageLibrary() { return imageLibrary; }
     public List<RichPresenceProfile> getProfiles() { return profiles; }
     public int getActiveProfileIndex() { return activeProfileIndex; }

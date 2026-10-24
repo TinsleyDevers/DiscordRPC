@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.6.0 (2026-10-23)
+
+Pick which Discord account shows your status.
+
+- The Settings tab has a new Discord Account list. It finds every Discord app open on your PC (Discord, Discord PTB, Canary) and shows the account signed in to each one. Pick the one you want and press Done. Your status moves over and is cleared from the account you left.
+- Auto is the default and works the way the mod always has: it uses the first Discord it finds.
+- The pick follows the account, not the app, so it doesn't matter which Discord you open first.
+- If the picked account's Discord is closed, the status line says it's waiting for it and the mod connects as soon as it opens. It won't fall back to your other account. Pick Auto to go back to using whichever Discord is found first.
+- The status line names the app, for example "Connected to Discord PTB as zambied".
+- The Settings tab updates on its own when Discord connects or disconnects and when a Discord app opens or closes. Before, it only changed when you reopened the screen.
+
 ## 1.5.2 (2026-10-20)
 
 The editor works in small windows now.

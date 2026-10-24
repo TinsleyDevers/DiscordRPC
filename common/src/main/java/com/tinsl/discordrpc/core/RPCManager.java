@@ -8,6 +8,7 @@ import com.tinsl.discordrpc.config.RichPresenceProfile;
 import com.tinsl.discordrpc.images.SkinImages;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -55,6 +56,8 @@ public class RPCManager {
     /** Current player counts fed by the per-version ticker; max 0 = unknown, party omitted. */
     private volatile int partySize = 0;
     private volatile int partyMax = 0;
+    /** Accounts open in the running Discord apps, from the last {@link #refreshAccounts()}. */
+    private volatile List<DiscordIPC.Account> accounts = List.of();
 
     public RPCManager(ModConfig config) {
         this.config = config;
@@ -86,8 +89,9 @@ public class RPCManager {
 
     private void attemptConnect() {
         if (!config.isEnabled()) return;
-        if (ipc.connect(ModConfig.APPLICATION_ID)) {
+        if (ipc.connect(ModConfig.APPLICATION_ID, config.getDiscordAccountId())) {
             reconnectAttempts = 0;
+            rememberAccountName(ipc.getAccount());
             // Discord forgot our activity along with the old connection.
             lastSentPayload = null;
             lastSendMs = 0;
@@ -97,12 +101,65 @@ public class RPCManager {
         }
     }
 
+    /**
+     * Moves the presence to the account picked in the settings. The old
+     * account's status is cleared first, so it never lingers on the account
+     * the player switched away from, and its link is parked rather than
+     * closed so switching back is instant. Does nothing when the live
+     * connection already suits the choice (Auto accepts whatever is connected).
+     */
+    public void switchAccount() {
+        submit(() -> {
+            String wanted = config.getDiscordAccountId();
+            DiscordIPC.Account now = ipc.getAccount();
+            if (ipc.isConnected() && now != null && (wanted.isEmpty() || wanted.equals(now.id()))) return;
+            stopUpdateLoop();
+            cancelReconnect();
+            if (ipc.isConnected()) {
+                ipc.clearActivity();
+                ipc.park();
+            }
+            lastSentPayload = null;
+            reconnectAttempts = 0;
+            attemptConnect();
+        });
+    }
+
+    /**
+     * Looks up which accounts are open in the running Discord apps, in the
+     * background. The settings screen calls this while it is showing and reads
+     * the answer back with {@link #getAccounts()}. Skipped while presence is
+     * off, so a disabled mod never knocks on Discord's door.
+     */
+    public void refreshAccounts() {
+        submit(() -> {
+            if (!config.isEnabled()) {
+                accounts = List.of();
+                return;
+            }
+            List<DiscordIPC.Account> found = List.copyOf(ipc.scanAccounts(ModConfig.APPLICATION_ID));
+            accounts = found;
+            String wanted = config.getDiscordAccountId();
+            for (DiscordIPC.Account a : found) {
+                if (a.id().equals(wanted)) rememberAccountName(a);
+            }
+        });
+    }
+
+    /** Keeps the saved label current when the chosen account renames itself. */
+    private void rememberAccountName(DiscordIPC.Account a) {
+        if (a == null || a.name().isEmpty()) return;
+        if (a.id().equals(config.getDiscordAccountId()) && !a.name().equals(config.getDiscordAccountName())) {
+            config.setDiscordAccount(a.id(), a.name());
+        }
+    }
+
     public void disconnect() {
         submit(() -> {
             stopUpdateLoop();
             cancelReconnect();
             ipc.clearActivity();
-            ipc.close();
+            ipc.closeAll();
             lastSentPayload = null;
         });
     }
@@ -113,7 +170,7 @@ public class RPCManager {
             if (!scheduler.isShutdown()) {
                 scheduler.execute(() -> {
                     ipc.clearActivity();
-                    ipc.close();
+                    ipc.closeAll();
                 });
                 scheduler.shutdown();
                 if (!scheduler.awaitTermination(2, TimeUnit.SECONDS)) {
@@ -477,6 +534,21 @@ public class RPCManager {
     /** Display name of the connected Discord account, or "" when unknown. */
     public String getDiscordUser() {
         return ipc.getDiscordUser();
+    }
+
+    /** Account on the live connection, or null while disconnected. */
+    public DiscordIPC.Account getAccount() {
+        return ipc.getAccount();
+    }
+
+    /** Accounts found by the last {@link #refreshAccounts()}; empty until one has run. */
+    public List<DiscordIPC.Account> getAccounts() {
+        return accounts;
+    }
+
+    /** Discord is open, but the account picked in the settings is not signed in to it. */
+    public boolean isWaitingForAccount() {
+        return !config.getDiscordAccountId().isEmpty() && ipc.isWaitingForAccount();
     }
 
     /**

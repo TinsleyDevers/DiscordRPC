@@ -6,6 +6,8 @@ import com.tinsl.discordrpc.config.RichPresenceProfile;
 import com.tinsl.discordrpc.config.RichPresenceProfile.ScreenContext;
 import com.tinsl.discordrpc.core.DiscordIPC;
 import com.tinsl.discordrpc.core.LauncherConflict;
+import com.tinsl.discordrpc.core.RPCManager;
+import com.tinsl.discordrpc.gui.widget.AccountListWidget;
 import com.tinsl.discordrpc.gui.widget.BundledImageRegistry;
 import com.tinsl.discordrpc.gui.widget.DiscordPreviewWidget;
 import com.tinsl.discordrpc.gui.widget.ImagePickerWidget;
@@ -100,6 +102,9 @@ public class ConfigScreen extends Screen {
     private static final int COLOR_RED     = 0xFFFF5555;
     private static final int COLOR_GOLD    = 0xFFFFAA00;
 
+    /** How often the open Settings tab looks for Discord apps being opened or closed. */
+    private static final long ACCOUNT_SCAN_MS = 5000;
+
     private static final int TAB_BAR_HEIGHT = 24;
     private static final int FOOTER_HEIGHT = 33;
 
@@ -151,6 +156,13 @@ public class ConfigScreen extends Screen {
     private int confirmDeleteServerIdx = -1;
     /** True after the first click on "Reset Everything" (two-click confirm). */
     private boolean confirmReset = false;
+    /** The Settings tab's status as it was last built; a change redraws the tab. */
+    private String settingsSignature = "";
+    /** When the Settings tab last asked which Discord accounts are open. 0 = ask now. */
+    private long lastAccountScanMs = 0;
+    /** Discord account picked in the list but not saved yet; null = unchanged. Saved on Done. */
+    private String pendingAccountId = null;
+    private String pendingAccountName = "";
 
     // Layout
     private boolean compact;
@@ -392,6 +404,7 @@ public class ConfigScreen extends Screen {
 
         currentTab = tab;
         currentZone = DiscordPreviewWidget.Zone.NONE;
+        lastAccountScanMs = 0;
         confirmDeleteServerIdx = -1;
         confirmReset = false;
         editingServerProfile = null;
@@ -1454,26 +1467,31 @@ public class ConfigScreen extends Screen {
                 && !config.isLauncherWarningDismissed();
         // Short windows (854x480 at GUI scale 2 is only 240 tall) get tighter rows so the
         // last one stays clear of Done and Cancel.
+        var rpc = DiscordRPCMod.getInstance().getRpcManager();
+        settingsSignature = settingsSignature(rpc);
         boolean tight = contentBottom - contentTop < (conflict ? 240 : 200);
         int y = contentTop + (tight ? 6 : 12);
 
         // Connection line + reconnect button when it is down.
-        var rpc = DiscordRPCMod.getInstance().getRpcManager();
         DiscordIPC.State state = rpc != null ? rpc.getConnectionState() : DiscordIPC.State.DISCONNECTED;
+        boolean waiting = rpc != null && state != DiscordIPC.State.CONNECTED && rpc.isWaitingForAccount();
         Component status = switch (state) {
             case CONNECTED -> {
-                String user = rpc.getDiscordUser();
-                yield user.isEmpty()
-                        ? Component.translatable("discordrpc.status.connected")
-                        : Component.translatable("discordrpc.status.connected_as", user);
+                DiscordIPC.Account acc = rpc.getAccount();
+                String user = acc != null ? acc.name() : "";
+                if (user.isEmpty()) yield Component.translatable("discordrpc.status.connected");
+                // Names the app too, so with Discord and PTB both open it's clear which one.
+                yield Component.translatable("discordrpc.status.connected_as_on", user, acc.client().displayName());
             }
             case CONNECTING -> Component.translatable("discordrpc.status.connecting");
-            default -> Component.translatable("discordrpc.status.disconnected");
+            default -> waiting
+                    ? Component.translatable("discordrpc.status.waiting_for_account", savedAccountName())
+                    : Component.translatable("discordrpc.status.disconnected");
         };
         int statusColor = switch (state) {
             case CONNECTED -> COLOR_GREEN;
             case CONNECTING -> COLOR_YELLOW;
-            default -> COLOR_RED;
+            default -> waiting ? COLOR_YELLOW : COLOR_RED;
         };
         addText(status, x, y + 2, statusColor, true);
         if (state == DiscordIPC.State.DISCONNECTED && config.isEnabled()) {
@@ -1550,6 +1568,8 @@ public class ConfigScreen extends Screen {
 
         y += (twoCols ? 4 : 8) * rowStep + (tight ? 2 : 8);
 
+        y = addAccountSection(rpc, x, y, blockW, tight);
+
         y = addSectionHeaderAt(x, y, blockW, "discordrpc.section.profile_sharing");
         int half = (blockW - 8) / 2;
         addDynamic(Button.builder(Component.translatable("discordrpc.button.export_profiles"),
@@ -1580,6 +1600,7 @@ public class ConfigScreen extends Screen {
                                 return;
                             }
                             confirmReset = false;
+                            pendingAccountId = null;
                             config.resetToDefaults();
                             baseCopies.clear();
                             realProfiles.clear();
@@ -1592,6 +1613,80 @@ public class ConfigScreen extends Screen {
                 .bounds(x + half + 8, y, blockW - half - 8, 20)
                 .tooltip(Tooltip.create(Component.translatable("discordrpc.button.reset_everything.tooltip")))
                 .build());
+    }
+
+    /**
+     * The Discord Account setting: Auto, then every Discord app found on this
+     * PC with the account signed in to it, then the saved pick if its Discord
+     * is closed right now. The list refreshes on its own while the tab is
+     * open. A pick is held until Done, like the rest of the settings.
+     */
+    private int addAccountSection(RPCManager rpc, int x, int y, int w, boolean tight) {
+        y = addSectionHeaderAt(x, y, w, "discordrpc.settings.discord_account");
+
+        List<DiscordIPC.Account> open = new ArrayList<>(rpc != null ? rpc.getAccounts() : List.of());
+        DiscordIPC.Account live = rpc != null ? rpc.getAccount() : null;
+        if (live != null && open.stream().noneMatch(a -> a.id().equals(live.id()))) open.add(0, live);
+
+        String picked = pickedAccountId();
+        List<AccountListWidget.Entry> rows = new ArrayList<>();
+        rows.add(new AccountListWidget.Entry("",
+                Component.translatable("discordrpc.settings.discord_account.auto").getString(),
+                Component.translatable("discordrpc.settings.discord_account.auto.detail").getString()));
+        for (DiscordIPC.Account a : open) {
+            rows.add(new AccountListWidget.Entry(a.id(), a.name().isEmpty() ? a.id() : a.name(),
+                    a.client().displayName()));
+        }
+        if (!picked.isEmpty() && open.stream().noneMatch(a -> a.id().equals(picked))) {
+            String name = pendingAccountId != null ? pendingAccountName : config.getDiscordAccountName();
+            rows.add(new AccountListWidget.Entry(picked, name.isEmpty() ? picked : name,
+                    Component.translatable("discordrpc.settings.discord_account.closed").getString()));
+        }
+
+        AccountListWidget list = addDynamic(new AccountListWidget(x, y, w, rows, picked, e -> {
+            pendingAccountId = e.id();
+            pendingAccountName = e.id().isEmpty() ? "" : e.name();
+        }));
+        y += list.getHeight() + 4;
+
+        if (open.isEmpty()) {
+            Component none = Component.translatable("discordrpc.settings.discord_account.none");
+            addWrappedText(none, x, y, w, COLOR_HINT, false);
+            y += wrappedHeight(none, w);
+        }
+        return y + (tight ? 6 : 10);
+    }
+
+    /** The account the list shows as picked: an unsaved pick, else the saved one ("" = Auto). */
+    private String pickedAccountId() {
+        return pendingAccountId != null ? pendingAccountId : config.getDiscordAccountId();
+    }
+
+    private String savedAccountName() {
+        String name = config.getDiscordAccountName();
+        return name.isEmpty() ? config.getDiscordAccountId() : name;
+    }
+
+    /**
+     * Keeps the Settings tab live: looks for Discord apps every few seconds and
+     * rebuilds the tab when the connection, the open accounts or the pick
+     * changed.
+     */
+    private void refreshSettingsTab() {
+        var rpc = DiscordRPCMod.getInstance().getRpcManager();
+        if (rpc == null) return;
+        long now = System.currentTimeMillis();
+        if (now - lastAccountScanMs >= ACCOUNT_SCAN_MS) {
+            lastAccountScanMs = now;
+            rpc.refreshAccounts();
+        }
+        if (!settingsSignature(rpc).equals(settingsSignature)) rebuildContent();
+    }
+
+    private String settingsSignature(RPCManager rpc) {
+        if (rpc == null) return "";
+        return rpc.getConnectionState() + "|" + rpc.isWaitingForAccount() + "|" + rpc.getAccount() + "|" + rpc.getAccounts()
+                + "|" + config.getDiscordAccountId();
     }
 
     /** Vanilla slider showing "Label: 3s" / "Label: 5m". */
@@ -1753,6 +1848,7 @@ public class ConfigScreen extends Screen {
     public void tick() {
         super.tick();
         updatePreview();
+        if (currentTab == TAB_SETTINGS && !closed) refreshSettingsTab();
     }
 
     // Scrolling
@@ -1841,6 +1937,7 @@ public class ConfigScreen extends Screen {
             }
         }
 
+        if (pendingAccountId != null) config.setDiscordAccount(pendingAccountId, pendingAccountName);
         config.save();
 
         var rpc = DiscordRPCMod.getInstance().getRpcManager();
@@ -1848,6 +1945,8 @@ public class ConfigScreen extends Screen {
             if (!config.isEnabled()) {
                 rpc.disconnect();
             } else if (rpc.isConnected()) {
+                // Moves the presence when a different Discord account was picked.
+                rpc.switchAccount();
                 rpc.restartUpdateLoop();
                 rpc.forceUpdate();
             } else {

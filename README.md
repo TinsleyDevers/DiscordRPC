@@ -59,6 +59,9 @@ The Fabric builds need [Fabric API](https://modrinth.com/mod/fabric-api);
 - **Resilient connection**: reconnects automatically (with backoff) when
   Discord starts late or restarts, and answers Discord's pings. Works with
   Flatpak and Snap installs of Discord on Linux.
+- **More than one Discord**: running Discord and Discord PTB (or Canary) on
+  different accounts? The Settings tab lists every Discord app open on your PC
+  with its account, so you can pick which one shows your status.
 
 ## The presence isn't showing?
 
